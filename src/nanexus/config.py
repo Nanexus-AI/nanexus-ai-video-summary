@@ -31,6 +31,27 @@ class Settings(BaseSettings):
     snapshots_dir: str = "data/snapshots"
     public_base_url: str = "http://127.0.0.1:8000"
 
+    # Summary worker
+    summary_queue_key: str = "nanexus:summary:jobs"
+    summary_done_set_key: str = "nanexus:summary:done"
+    # rule | llm
+    summary_mode: str = "rule"
+    summary_hour: int = 23
+    summary_minute: int = 50
+    # UTC | local
+    summary_timezone: str = "UTC"
+
+    # Chat
+    # extractive | llm
+    chat_mode: str = "extractive"
+    chat_lookback_days: int = 3
+
+    # OpenAI-compatible LLM (optional)
+    llm_api_key: str = ""
+    llm_base_url: str = "https://api.openai.com/v1"
+    llm_model: str = "gpt-4o-mini"
+    llm_timeout_seconds: float = 60.0
+
 
 @lru_cache
 def get_settings() -> Settings:

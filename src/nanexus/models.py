@@ -58,3 +58,22 @@ class DailySummary(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(128), nullable=False, default="local", index=True)
+    title: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    messages: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
+    related_event_ids: Mapped[list[int] | None] = mapped_column(ARRAY(Integer), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )

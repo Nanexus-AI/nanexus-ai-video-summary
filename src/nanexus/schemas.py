@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -53,11 +54,25 @@ class HealthResponse(BaseModel):
     database: bool
     redis: bool
     ai_mode: str
+    summary_mode: str
+    chat_mode: str
 
 
 class RegenerateSummaryRequest(BaseModel):
     summary_date: date | None = None
     camera: str | None = None
+    mode: str | None = Field(default=None, description="rule|llm")
+    sync: bool = Field(
+        default=False,
+        description="If true, build inline; otherwise enqueue summary_worker",
+    )
+
+
+class SummaryQueuedResponse(BaseModel):
+    status: str
+    summary_date: date
+    camera: str | None = None
+    mode: str | None = None
 
 
 class SearchRequest(BaseModel):
@@ -79,3 +94,30 @@ class SearchResponse(BaseModel):
     method: str
     total: int
     items: list[SearchHit]
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+    conversation_id: int | None = None
+    camera: str | None = None
+    user_id: str = "local"
+
+
+class ChatResponse(BaseModel):
+    conversation_id: int
+    answer: str
+    method: str
+    related_event_ids: list[int]
+    related_events: list[EventOut] = Field(default_factory=list)
+
+
+class ConversationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: str
+    title: str | None = None
+    messages: list[dict[str, Any]] | None = None
+    related_event_ids: list[int] | None = None
+    created_at: datetime
+    updated_at: datetime

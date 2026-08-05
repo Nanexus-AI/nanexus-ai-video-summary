@@ -8,12 +8,16 @@ from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from nanexus.chat import run_chat
 from nanexus.config import get_settings
 from nanexus.db import get_db, init_db
 from nanexus.media import local_snapshot_path, snapshots_dir
-from nanexus.models import DailySummary, Event
-from nanexus.queue import AIJob, AIQueue
+from nanexus.models import Conversation, DailySummary, Event
+from nanexus.queue import AIJob, AIQueue, SummaryJob
 from nanexus.schemas import (
+    ChatRequest,
+    ChatResponse,
+    ConversationOut,
     EventOut,
     HealthResponse,
     RegenerateSummaryRequest,
@@ -21,14 +25,15 @@ from nanexus.schemas import (
     SearchRequest,
     SearchResponse,
     SummaryOut,
+    SummaryQueuedResponse,
     SummaryResponse,
     TimelineResponse,
 )
 from nanexus.search import search_events
-from nanexus.summary import build_rule_summary, fallback_summary_text
+from nanexus.summary import build_daily_summary, fallback_summary_text
 
 settings = get_settings()
-app = FastAPI(title="Nanexus AI Video Summary", version="0.2.0")
+app = FastAPI(title="Nanexus AI Video Summary", version="0.3.0")
 
 
 @app.on_event("startup")
@@ -56,6 +61,8 @@ def health(db: Session = Depends(get_db)) -> HealthResponse:
         database=db_ok,
         redis=redis_ok,
         ai_mode=settings.ai_mode,
+        summary_mode=settings.summary_mode,
+        chat_mode=settings.chat_mode,
     )
 
 
@@ -107,13 +114,29 @@ def summary_today(
     )
 
 
-@app.post("/summary/regenerate", response_model=SummaryOut)
+@app.post("/summary/regenerate")
 def regenerate_summary(
     body: RegenerateSummaryRequest,
     db: Session = Depends(get_db),
-) -> DailySummary:
+):
     day = body.summary_date or datetime.now(tz=UTC).date()
-    return build_rule_summary(db, day, camera=body.camera)
+    mode = body.mode or settings.summary_mode
+
+    if body.sync:
+        summary = build_daily_summary(db, day, camera=body.camera, mode=mode)
+        return SummaryOut.model_validate(summary)
+
+    queue = AIQueue()
+    queue.clear_summary_done(day.isoformat(), body.camera)
+    queue.enqueue_summary(
+        SummaryJob(summary_date=day.isoformat(), camera=body.camera, mode=mode)
+    )
+    return SummaryQueuedResponse(
+        status="queued",
+        summary_date=day,
+        camera=body.camera,
+        mode=mode,
+    )
 
 
 @app.post("/search", response_model=SearchResponse)
@@ -132,6 +155,45 @@ def search(body: SearchRequest, db: Session = Depends(get_db)) -> SearchResponse
         score = scores[idx] if idx < len(scores) else None
         items.append(SearchHit(event=EventOut.model_validate(event), score=score))
     return SearchResponse(query=body.query, method=method, total=len(items), items=items)
+
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(body: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
+    try:
+        conv, answer, related_ids, method = run_chat(
+            db,
+            body.message,
+            conversation_id=body.conversation_id,
+            camera=body.camera,
+            user_id=body.user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    related_events = []
+    if related_ids:
+        related_events = list(
+            db.scalars(select(Event).where(Event.id.in_(related_ids))).all()
+        )
+        # Preserve retrieval order
+        by_id = {e.id: e for e in related_events}
+        related_events = [by_id[i] for i in related_ids if i in by_id]
+
+    return ChatResponse(
+        conversation_id=conv.id,
+        answer=answer,
+        method=method,
+        related_event_ids=related_ids,
+        related_events=[EventOut.model_validate(e) for e in related_events],
+    )
+
+
+@app.get("/conversations/{conversation_id}", response_model=ConversationOut)
+def get_conversation(conversation_id: int, db: Session = Depends(get_db)) -> Conversation:
+    conv = db.get(Conversation, conversation_id)
+    if not conv:
+        raise HTTPException(status_code=404, detail="conversation not found")
+    return conv
 
 
 @app.get("/events/{event_id}", response_model=EventOut)
@@ -201,10 +263,11 @@ def reprocess_event(event_id: int, db: Session = Depends(get_db)) -> Event:
 def root() -> dict[str, str]:
     return {
         "service": "nanexus-ai-video-summary",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "docs": "/docs",
         "health": "/health",
         "timeline": "/timeline",
         "summary": "/summary/today",
         "search": "/search",
+        "chat": "/chat",
     }

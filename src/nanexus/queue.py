@@ -24,6 +24,21 @@ class AIJob:
         return cls(**data)
 
 
+@dataclass
+class SummaryJob:
+    summary_date: str  # YYYY-MM-DD
+    camera: str | None = None
+    mode: str | None = None
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self))
+
+    @classmethod
+    def from_json(cls, payload: str | bytes) -> SummaryJob:
+        data = json.loads(payload)
+        return cls(**data)
+
+
 class AIQueue:
     def __init__(self, client: redis.Redis | None = None) -> None:
         settings = get_settings()
@@ -40,12 +55,30 @@ class AIQueue:
         _, payload = item
         return AIJob.from_json(payload)
 
+    def enqueue_summary(self, job: SummaryJob) -> None:
+        self._client.lpush(self._settings.summary_queue_key, job.to_json())
+
+    def dequeue_summary(self, timeout: int = 5) -> SummaryJob | None:
+        item = self._client.brpop(self._settings.summary_queue_key, timeout=timeout)
+        if not item:
+            return None
+        _, payload = item
+        return SummaryJob.from_json(payload)
+
     def mark_processed(self, frigate_id: str) -> bool:
         """Return True if this frigate_id was newly marked (not a duplicate)."""
         return bool(self._client.sadd(self._settings.processed_set_key, frigate_id))
 
     def unmark_processed(self, frigate_id: str) -> None:
         self._client.srem(self._settings.processed_set_key, frigate_id)
+
+    def mark_summary_done(self, day: str, camera: str | None = None) -> bool:
+        key = f"{day}:{camera or '*'}"
+        return bool(self._client.sadd(self._settings.summary_done_set_key, key))
+
+    def clear_summary_done(self, day: str, camera: str | None = None) -> None:
+        key = f"{day}:{camera or '*'}"
+        self._client.srem(self._settings.summary_done_set_key, key)
 
     def ping(self) -> Any:
         return self._client.ping()

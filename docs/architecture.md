@@ -392,9 +392,9 @@ Frigate 检测
 
 ### M2 — 摘要与成本可控
 
-- [ ] Summary Worker 日终任务  
-- [ ] `GET /summary/today`  
-- [ ] 基础 Chat（RAG over events/summaries）
+- [x] Summary Worker 日终任务  
+- [x] `GET /summary/today`  
+- [x] 基础 Chat（RAG over events/summaries）
 
 ### M3 — 客户端与 HA
 
