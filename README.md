@@ -7,6 +7,7 @@ Frigate 之上的 AI 视频摘要 / 时间线 / 语义检索 / 问答（当前 *
 - M1 总结：[`docs/m1-implementation.md`](docs/m1-implementation.md)
 - M2 总结：[`docs/m2-implementation.md`](docs/m2-implementation.md)
 - Android 开发机环境：[`docs/android-dev-machine.md`](docs/android-dev-machine.md)
+- Android Compose App：[`android/`](android/)（见下方「Android App」）
 
 ## 当前能力
 
@@ -88,8 +89,24 @@ LLM_MODEL=gpt-4o-mini
 
 未配置 Key 时默认 `rule` / `extractive`，仍可完整演示。
 
+## Android App
+
+Jetpack Compose 客户端在 `android/`，对接同一套 API（Today / Timeline / Search / Settings）。
+
+```bash
+export JAVA_HOME=~/tools/jdk-17
+export ANDROID_HOME=~/Android/Sdk
+cd android
+./gradlew assembleDebug
+# APK: app/build/outputs/apk/debug/app-debug.apk
+```
+
+默认 Base URL：`http://10.0.2.2:8000`（模拟器访问本机 API）。真机请在 Settings 改为 API 所在局域网地址，例如 `http://192.168.1.84:8000`。API 需 `--host 0.0.0.0`。
+
+用 Android Studio 打开 `android/` 目录即可 Run。环境说明见 [`docs/android-dev-machine.md`](docs/android-dev-machine.md)。
+
 ## 下一步（M3）
 
+- Android Chat 页 + 推送通知
 - iOS App：Summary / Timeline / Search / Chat
 - Home Assistant Integration
-- 通知策略

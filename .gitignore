@@ -11,4 +11,4 @@ dist/
 build/
 *.log
 .DS_Store
-data/
+/data/

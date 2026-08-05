@@ -37,17 +37,29 @@ sdkmanager --list_installed
 emulator -list-avds
 ```
 
-## 连 Nanexus API
+## Compose App（`android/`）
 
-App / 模拟器里 Base URL 使用后端真实 IP，例如：
-
-```text
-http://192.168.1.80:8000
+```bash
+export JAVA_HOME=~/tools/jdk-17
+export ANDROID_HOME=~/Android/Sdk
+cd ~/Nanexus/nanexus_ai_video_summary/android
+./gradlew assembleDebug
+# app/build/outputs/apk/debug/app-debug.apk
 ```
 
-（若 API 跑在本机 84，用本机局域网 IP 或 `http://10.0.2.2:8000` 仅适用于模拟器访问**本机**服务。）
+Android Studio：打开仓库里的 `android/` 目录，选模拟器或真机 Run。
 
-开发期 HTTP 需在 AndroidManifest / network security config 允许 cleartext。
+## 连 Nanexus API
+
+| 客户端 | Base URL 示例 |
+|--------|----------------|
+| 模拟器 → 本机 API | `http://10.0.2.2:8000`（App 默认） |
+| 真机 → 本机 API（84） | `http://192.168.1.84:8000` |
+| 任意 → 其他主机 | 该主机局域网 IP + `:8000` |
+
+API 需监听 `0.0.0.0`。App Settings 可改 Base URL 与 camera filter，并点 Save & test 打 `/health`。
+
+开发期 HTTP 已在 Manifest / `network_security_config` 允许 cleartext。
 
 ## 可选：系统级 JDK（需 sudo）
 
