@@ -52,8 +52,30 @@ class HealthResponse(BaseModel):
     status: str
     database: bool
     redis: bool
+    ai_mode: str
 
 
 class RegenerateSummaryRequest(BaseModel):
     summary_date: date | None = None
     camera: str | None = None
+
+
+class SearchRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=500)
+    limit: int = Field(default=20, ge=1, le=100)
+    camera: str | None = None
+    label: str | None = None
+    since: datetime | None = None
+    until: datetime | None = None
+
+
+class SearchHit(BaseModel):
+    event: EventOut
+    score: float | None = None
+
+
+class SearchResponse(BaseModel):
+    query: str
+    method: str
+    total: int
+    items: list[SearchHit]

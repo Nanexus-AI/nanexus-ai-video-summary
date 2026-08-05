@@ -44,5 +44,8 @@ class AIQueue:
         """Return True if this frigate_id was newly marked (not a duplicate)."""
         return bool(self._client.sadd(self._settings.processed_set_key, frigate_id))
 
+    def unmark_processed(self, frigate_id: str) -> None:
+        self._client.srem(self._settings.processed_set_key, frigate_id)
+
     def ping(self) -> Any:
         return self._client.ping()

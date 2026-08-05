@@ -16,12 +16,20 @@ class Settings(BaseSettings):
     mqtt_port: int = 1884
     mqtt_topic: str = "frigate/events"
     frigate_base_url: str = "http://localhost:5000"
+    frigate_token: str = ""
     embedding_dim: int = 512
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     log_level: str = "INFO"
     ai_queue_key: str = "nanexus:ai:events"
     processed_set_key: str = "nanexus:ai:processed"
+    # stub | openclip
+    ai_mode: str = "openclip"
+    ai_device: str = "auto"
+    openclip_model: str = "ViT-B-32"
+    openclip_pretrained: str = "openai"
+    snapshots_dir: str = "data/snapshots"
+    public_base_url: str = "http://127.0.0.1:8000"
 
 
 @lru_cache

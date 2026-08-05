@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-import hashlib
 import logging
 import signal
 import sys
-import time
 from typing import Any
 
 from nanexus.config import get_settings
 from nanexus.db import SessionLocal, init_db
+from nanexus.media import fetch_snapshot_bytes
 from nanexus.models import Event
 from nanexus.queue import AIJob, AIQueue
+from nanexus.vision import get_vision_pipeline
 
 logging.basicConfig(
     level=get_settings().log_level,
@@ -27,30 +27,9 @@ def _handle_signal(signum: int, frame: Any) -> None:
     _running = False
 
 
-def stub_caption(event: Event) -> str:
-    where = event.camera.replace("_", " ")
-    detail = event.sub_label or event.label
-    return f"Stub vision: {detail} near {where}"
-
-
-def stub_embedding(frigate_id: str, dim: int) -> list[float]:
-    """Deterministic pseudo-embedding for M0 (replace with OpenCLIP later)."""
-    digest = hashlib.sha256(frigate_id.encode("utf-8")).digest()
-    values: list[float] = []
-    while len(values) < dim:
-        for b in digest:
-            values.append((b / 255.0) * 2 - 1)
-            if len(values) >= dim:
-                break
-        digest = hashlib.sha256(digest).digest()
-    # L2 normalize lightly
-    norm = sum(v * v for v in values) ** 0.5 or 1.0
-    return [v / norm for v in values]
-
-
 def process_job(job: AIJob) -> None:
-    settings = get_settings()
     db = SessionLocal()
+    pipeline = get_vision_pipeline()
     try:
         event = db.get(Event, job.event_id)
         if not event:
@@ -61,24 +40,27 @@ def process_job(job: AIJob) -> None:
         db.add(event)
         db.commit()
 
-        # M0 stub pipeline: snapshot URI is recorded but not downloaded yet.
-        caption = stub_caption(event)
-        embedding = stub_embedding(event.frigate_id, settings.embedding_dim)
-        tags = [event.label]
-        if event.sub_label:
-            tags.append(str(event.sub_label))
+        uri = job.snapshot_uri or event.snapshot_uri
+        image_bytes = fetch_snapshot_bytes(uri)
+        result = pipeline.analyze_image(
+            image_bytes,
+            camera=event.camera,
+            label=event.label,
+            sub_label=event.sub_label,
+        )
 
-        event.caption = caption
-        event.embedding = embedding
-        event.tags = tags
+        event.caption = result.caption
+        event.embedding = result.embedding
+        event.tags = result.tags
         event.status = "done"
         db.add(event)
         db.commit()
         logger.info(
-            "processed event id=%s frigate_id=%s caption=%r",
+            "processed event id=%s frigate_id=%s model=%s caption=%r",
             event.id,
             event.frigate_id,
-            caption,
+            result.model,
+            result.caption,
         )
     except Exception:
         db.rollback()
@@ -96,7 +78,15 @@ def main() -> None:
     signal.signal(signal.SIGINT, _handle_signal)
     signal.signal(signal.SIGTERM, _handle_signal)
 
+    settings = get_settings()
     init_db()
+    pipeline = get_vision_pipeline()
+    if pipeline.mode != "stub":
+        logger.info("preloading vision model (ai_mode=%s)...", settings.ai_mode)
+        pipeline.ensure_loaded()
+    else:
+        logger.info("AI worker in stub mode")
+
     queue = AIQueue()
     logger.info("AI worker started; waiting on queue")
 

@@ -380,15 +380,15 @@ Frigate 检测
 
 ### M0 — 骨架可运行
 
-- [ ] Docker Compose：API + MQTT Listener + Postgres + Redis  
-- [ ] 配置 Frigate / MQTT 后能稳定收事件并落库  
-- [ ] 基础 `GET /timeline`
+- [x] Docker Compose：API + MQTT Listener + Postgres + Redis  
+- [x] 配置 Frigate / MQTT 后能稳定收事件并落库  
+- [x] 基础 `GET /timeline`
 
 ### M1 — 理解层
 
-- [ ] AI Worker：snapshot → caption → embedding  
-- [ ] `POST /search`（pgvector）  
-- [ ] 媒体 URI 可从 API 回跳到 Frigate
+- [x] AI Worker：snapshot → caption → embedding  
+- [x] `POST /search`（pgvector）  
+- [x] 媒体 URI 可从 API 回跳到 Frigate
 
 ### M2 — 摘要与成本可控
 
