@@ -1,0 +1,505 @@
+我认真考虑了一下你的背景（C++、Home Assistant、Frigate、ESP32、未来 iOS App、希望做订阅产品），我不会建议采用目前很多 AI Demo 常见的「LangChain + Python 脚本」架构。
+
+那个架构做 Demo 很快，但后期维护、性能、部署、收费都比较痛苦。
+
+我更建议采用“分层微服务”架构。
+
+我的目标
+
+整个产品最好满足：
+
+安装：
+
+docker compose up
+
+↓
+
+运行
+
+↓
+
+用户填：
+
+Frigate地址
+
+MQTT
+
+Token
+
+↓
+
+完成
+
+以后：
+
+Windows
+
+Linux
+
+NAS
+
+Docker
+
+Home Assistant Add-on
+
+全部能跑。
+
+我建议整体技术栈
+                  iOS App
+                     │
+              HTTPS / WebSocket
+                     │
+              AI Assistant API
+                     │
+     ┌───────────────┼────────────────┐
+     │               │                │
+ Event Service   AI Service     Search Service
+     │               │                │
+     └───────────────┼────────────────┘
+                     │
+              PostgreSQL
+                     │
+         MQTT / Frigate API
+                     │
+                 Frigate
+
+整个系统拆成几个独立模块。
+
+第一层：API Server（核心）
+
+我推荐：
+
+FastAPI（Python）
+
+为什么？
+
+因为：
+
+几乎所有 AI 库：
+
+PyTorch
+
+ONNX
+
+Transformers
+
+SentenceTransformer
+
+Whisper
+
+YOLO
+
+OpenCLIP
+
+全部都是 Python 第一支持。
+
+FastAPI：
+
+非常成熟。
+
+例如：
+
+GET /summary/today
+
+GET /timeline
+
+POST /chat
+
+POST /search
+
+全部由它提供。
+
+为什么不用 C++？
+
+因为：
+
+你以后：
+
+一定会接：
+
+LLM
+
+Embedding
+
+Reranker
+
+Vision
+
+Speech
+
+Python 的生态优势太明显。
+
+而 C++ 做 API 反而增加复杂度。
+
+第二层：MQTT Event Service
+
+建议：
+
+独立 Service。
+
+例如：
+
+mqtt_listener
+
+只负责：
+
+订阅
+
+frigate/events
+
+收到：
+
+Person
+
+↓
+
+保存数据库
+
+↓
+
+通知AI
+
+不要直接写到 API。
+
+否则以后：
+
+100 路摄像头：
+
+容易卡。
+
+第三层：AI Worker
+
+这是整个产品最重要。
+
+建议：
+
+完全独立。
+
+例如：
+
+ai_worker
+
+收到：
+
+New Event
+
+以后：
+
+依次：
+
+读取 Snapshot
+
+↓
+
+Vision
+
+↓
+
+Caption
+
+↓
+
+Embedding
+
+↓
+
+保存数据库
+
+以后：
+
+如果：
+
+RTX5060
+
+换：
+
+5090
+
+不用改其它模块。
+
+第四层：LLM Service
+
+不要：
+
+API Server
+
+直接调用：
+
+LLM。
+
+应该：
+
+Summary Worker
+
+例如：
+
+晚上：
+
+23:50
+
+读取：
+
+今天全部 Event
+
+生成：
+
+Summary
+
+保存。
+
+以后：
+
+手机：
+
+只是：
+
+GET
+
+summary
+
+不用：
+
+重新调用 GPT。
+
+成本非常低。
+
+第五层：Database
+
+这里很多人会直接 SQLite。
+
+我不建议。
+
+建议：
+
+PostgreSQL
+
+原因：
+
+以后：
+
+一定会：
+
+Conversation
+
+Summary
+
+Tag
+
+Embedding
+
+Notification
+
+User
+
+Subscription
+
+SQLite：
+
+以后会越来越难维护。
+
+另外：
+
+Embedding
+
+建议：
+
+pgvector
+
+直接：
+
+PostgreSQL
+
++
+
+pgvector
+
+以后：
+
+找：
+
+昨天那个拿纸箱的人
+
+一句 SQL。
+
+完成。
+
+不用：
+
+Milvus。
+
+不用：
+
+Pinecone。
+
+不用：
+
+Qdrant。
+
+第六层：Redis
+
+建议：
+
+一定要有。
+
+用途：
+
+例如：
+
+新事件
+
+↓
+
+放Redis Queue
+
+↓
+
+AI Worker
+
+↓
+
+处理
+
+而不是：
+
+同步调用。
+
+这样：
+
+系统非常稳。
+
+第七层：Object Storage
+
+不要：
+
+自己管理：
+
+jpg。
+
+直接：
+
+继续利用：
+
+Frigate。
+
+例如：
+
+clips/
+
+export/
+
+snapshot/
+
+只保存：
+
+URI
+
+数据库：
+
+event123
+
+↓
+
+snapshot url
+
+即可。
+
+第八层：搜索
+
+不要：
+
+全文搜索。
+
+建议：
+
+OpenCLIP
+
+↓
+
+Embedding
+
+↓
+
+pgvector
+
+以后：
+
+红衣服
+
+↓
+
+找到
+UPS
+
+↓
+
+找到
+黑SUV
+
+↓
+
+找到
+
+一句话。
+
+第九层：手机 App
+
+建议：
+
+SwiftUI
+
+不用 Flutter。
+
+原因：
+
+你准备：
+
+长期：
+
+iOS。
+
+SwiftUI：
+
+开发效率已经很高。
+
+App：
+
+基本：
+
+只有：
+
+Summary
+
+Timeline
+
+Search
+
+Chat
+
+Notification
+第十层：Home Assistant Integration
+
+建议：
+
+不要：
+
+HACS Card
+
+开始。
+
+先：
+
+Integration。
+
+例如：
+
+AI Summary Sensor
+
+AI Timeline
+
+AI Notification
+
+以后：
+
+Dashboard
+
+自动有。
