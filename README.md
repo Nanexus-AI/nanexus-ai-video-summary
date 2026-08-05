@@ -6,6 +6,7 @@ Frigate 之上的 AI 视频摘要 / 时间线 / 语义检索 / 问答（当前 *
 - M0 总结：[`docs/m0-implementation.md`](docs/m0-implementation.md)
 - M1 总结：[`docs/m1-implementation.md`](docs/m1-implementation.md)
 - M2 总结：[`docs/m2-implementation.md`](docs/m2-implementation.md)
+- Android 开发机环境：[`docs/android-dev-machine.md`](docs/android-dev-machine.md)
 
 ## 当前能力
 

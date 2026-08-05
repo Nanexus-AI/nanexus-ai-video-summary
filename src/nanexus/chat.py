@@ -13,6 +13,54 @@ from nanexus.models import Conversation, DailySummary, Event
 from nanexus.search import search_events
 from nanexus.summary import day_bounds
 
+# Common aliases users type in Swagger / chat UI.
+_CAMERA_ALIASES = {
+    "front yard": "front_yard",
+    "frontyard": "front_yard",
+    "前院": "front_yard",
+    "前门": "front_door",
+    "front door": "front_door",
+    "frontdoor": "front_door",
+    "drive way": "driveway",
+    "车道": "driveway",
+    "车库": "garage",
+    "后院": "backyard",
+    "back yard": "backyard",
+}
+
+
+def _norm_key(value: str) -> str:
+    return value.strip().lower().replace("-", " ").replace("_", " ")
+
+
+def resolve_camera(db: Session, camera: str | None) -> str | None:
+    """Normalize camera input like 'front yard' / '前院' to DB id 'front_yard'."""
+    if not camera:
+        return None
+    raw = camera.strip()
+    if not raw:
+        return None
+
+    alias = _CAMERA_ALIASES.get(_norm_key(raw))
+    if alias:
+        return alias
+
+    known = list(db.scalars(select(Event.camera).distinct()).all())
+    # Exact match first.
+    for name in known:
+        if name == raw:
+            return name
+    # Space/underscore-insensitive match against known cameras.
+    target = _norm_key(raw)
+    for name in known:
+        if _norm_key(name) == target:
+            return name
+    # Soft contains match: "front yard" vs "front_yard_cam"
+    for name in known:
+        if target in _norm_key(name) or _norm_key(name) in target:
+            return name
+    return raw
+
 
 def _format_event_line(event: Event) -> str:
     ts = event.start_time.astimezone(UTC).strftime("%Y-%m-%d %H:%M")
@@ -28,6 +76,7 @@ def retrieve_context(
     limit: int = 8,
 ) -> tuple[list[Event], list[DailySummary], str]:
     """Retrieve events + recent summaries for RAG."""
+    camera = resolve_camera(db, camera)
     since = datetime.now(tz=UTC) - timedelta(days=get_settings().chat_lookback_days)
     events, _scores, method = search_events(
         db,
@@ -36,7 +85,6 @@ def retrieve_context(
         camera=camera,
         since=since,
     )
-
     # Always include today's summary if present.
     today = datetime.now(tz=UTC).date()
     summaries = list(
@@ -153,6 +201,7 @@ def run_chat(
     user_id: str = "local",
 ) -> tuple[Conversation, str, list[int], str]:
     settings = get_settings()
+    camera = resolve_camera(db, camera)
     events, summaries, method = retrieve_context(db, question, camera=camera)
     related_ids = [e.id for e in events]
 
