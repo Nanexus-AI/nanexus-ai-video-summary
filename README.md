@@ -93,7 +93,22 @@ data/snapshots/       # 本地演示快照（gitignore）
 
 ## 配置
 
-见 `.env.example`。连真实 Frigate 时设置 `FRIGATE_BASE_URL`、`MQTT_*`，可选 `FRIGATE_TOKEN`。
+见 `.env.example`。连真实 Frigate 时设置：
+
+```bash
+FRIGATE_BASE_URL=http://192.168.1.80:5000
+MQTT_HOST=192.168.1.80
+MQTT_PORT=1883
+MQTT_TOPIC=frigate/events
+```
+
+然后重启三个服务，并导入历史事件（不必等新检测）：
+
+```bash
+python scripts/import_frigate_events.py -n 10 --force
+```
+
+`mqtt_listener` 会继续订阅实时 `frigate/events`。
 
 ## 下一步（M2）
 
