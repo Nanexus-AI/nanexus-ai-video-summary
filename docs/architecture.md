@@ -427,3 +427,25 @@ Frigate 检测
 ## 10. 一句话结论
 
 **用 Docker Compose 交付一套「Frigate 事件 → 异步 AI 理解 → Postgres/pgvector 检索 → 预计算摘要」的分层系统；API 只做编排与查询，媒体继续交给 Frigate，客户端以 iOS + HA Integration 触达用户。**
+
+## Migration maintenance boundary (BASELINE-001)
+
+As of 2026-08-21, the following legacy infrastructure is frozen in maintenance mode:
+
+- `services/mqtt_listener` and direct Frigate MQTT ingestion;
+- the legacy `nanexus.models.Event` table and its mixed source/AI fields;
+- Redis List/Set delivery in `src/nanexus/queue.py`;
+- legacy media file reads and redirects in `services/api/main.py` and `src/nanexus/media.py`;
+- OpenCLIP loading from the API search path.
+
+These components remain runnable solely as migration and behavior references. Changes are limited to severe fixes required to unblock migration, preserve baseline execution, or export data. No new features may be added. This freeze does not change the runtime path and has no runtime rollback action.
+
+The migration dependency remains one-way: Video Summary may consume only public, versioned Event Intelligence contracts. Event Intelligence must not depend on this repository. The projects must not share databases, ORM models, private Redis keys, internal media paths, or undeclared endpoints. Video Summary must not bypass Event Intelligence to access Frigate or Evidence.
+
+## Frozen cross-project contract boundary (stage 1)
+
+The only allowed dependency is `Video Summary → Event Intelligence` through published, versioned JSON. Event Intelligence owns the normative schemas; this repository keeps an independent consumer mirror and must not import Event Intelligence source, ORM, database models, broker envelopes, filesystem paths or Frigate adapters.
+
+Processor v1 integration consists of ended `review_item` Jobs with opaque Snapshot Evidence IDs, structured Results with invocation facts and Caption/Tags claims, Capability negotiation, object-scoped Evidence read/Result submit authority, and default result reuse during Replay. Explicit reprocess is required for a new invocation.
+
+Job possession alone grants no media access. Video Summary must use the future authorized Event Intelligence Evidence API and may not construct Frigate URLs. Normative decisions are ADR-011/012 in Event Intelligence; consumer acceptance is under `docs/architecture-reviews/`.
