@@ -503,6 +503,12 @@ Stub 不读取真实模型，不访问云端，输出固定版本和确定性结
 - API/UI 可审计查看；
 - Replay 默认不触发真实外部副作用。
 
+### 8.5 实施状态（2026-08-21）
+
+FOUNDATION-001～006 已在 Event Intelligence 仓库完成，并通过 Video Summary 侧的只读跨仓复核。基座验收记录为 `docs/architecture/foundation-001-006-acceptance.md`；本仓复核记录见 [`architecture-reviews/2026-08-21-foundation-001-006-gate.md`](./architecture-reviews/2026-08-21-foundation-001-006-gate.md)。
+
+阶段 2 已达到退出条件。本状态不授权、也不表示阶段 3 已开始；Video Summary 运行时代码、旧链路和数据模型在本阶段均未切换。
+
 ## 9. 阶段 3：首个跨仓库垂直切片
 
 ### 9.1 目标

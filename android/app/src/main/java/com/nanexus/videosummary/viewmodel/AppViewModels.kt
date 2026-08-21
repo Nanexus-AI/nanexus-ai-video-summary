@@ -7,7 +7,7 @@ import com.nanexus.videosummary.data.model.EventOut
 import com.nanexus.videosummary.data.model.HealthResponse
 import com.nanexus.videosummary.data.model.SearchHit
 import com.nanexus.videosummary.data.model.SummaryResponse
-import com.nanexus.videosummary.data.repo.NanexusRepository
+import com.nanexus.videosummary.data.repo.NanexusDataSource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,7 +21,7 @@ data class UiState<T>(
     val error: String? = null,
 )
 
-class SummaryViewModel(private val repo: NanexusRepository) : ViewModel() {
+class SummaryViewModel(private val repo: NanexusDataSource) : ViewModel() {
     private val _state = MutableStateFlow(UiState<SummaryResponse>())
     val state = _state.asStateFlow()
     val cameraFilter = repo.cameraFilter.stateIn(viewModelScope, SharingStarted.Eagerly, "")
@@ -36,7 +36,7 @@ class SummaryViewModel(private val repo: NanexusRepository) : ViewModel() {
     }
 }
 
-class TimelineViewModel(private val repo: NanexusRepository) : ViewModel() {
+class TimelineViewModel(private val repo: NanexusDataSource) : ViewModel() {
     private val _state = MutableStateFlow(UiState<List<EventOut>>())
     val state = _state.asStateFlow()
     val baseUrl = repo.baseUrl.stateIn(viewModelScope, SharingStarted.Eagerly, "")
@@ -54,7 +54,7 @@ class TimelineViewModel(private val repo: NanexusRepository) : ViewModel() {
     fun snapshotUrl(eventId: Int): String = repo.snapshotUrl(baseUrl.value, eventId)
 }
 
-class SearchViewModel(private val repo: NanexusRepository) : ViewModel() {
+class SearchViewModel(private val repo: NanexusDataSource) : ViewModel() {
     private val _query = MutableStateFlow("")
     val query = _query.asStateFlow()
     private val _state = MutableStateFlow(UiState<List<SearchHit>>())
@@ -80,7 +80,7 @@ class SearchViewModel(private val repo: NanexusRepository) : ViewModel() {
     fun snapshotUrl(eventId: Int): String = repo.snapshotUrl(baseUrl.value, eventId)
 }
 
-class SettingsViewModel(private val repo: NanexusRepository) : ViewModel() {
+class SettingsViewModel(private val repo: NanexusDataSource) : ViewModel() {
     val baseUrl = repo.baseUrl.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val cameraFilter = repo.cameraFilter.stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
@@ -105,7 +105,7 @@ class SettingsViewModel(private val repo: NanexusRepository) : ViewModel() {
     }
 }
 
-class EventDetailViewModel(private val repo: NanexusRepository) : ViewModel() {
+class EventDetailViewModel(private val repo: NanexusDataSource) : ViewModel() {
     private val _state = MutableStateFlow(UiState<EventOut>())
     val state = _state.asStateFlow()
     val baseUrl = repo.baseUrl.stateIn(viewModelScope, SharingStarted.Eagerly, "")
@@ -122,7 +122,7 @@ class EventDetailViewModel(private val repo: NanexusRepository) : ViewModel() {
     fun snapshotUrl(eventId: Int): String = repo.snapshotUrl(baseUrl.value, eventId)
 }
 
-class AppViewModelFactory(private val repo: NanexusRepository) : ViewModelProvider.Factory {
+class AppViewModelFactory(private val repo: NanexusDataSource) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         return when {

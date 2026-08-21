@@ -1,0 +1,215 @@
+{
+  "fixture_version": "1.0",
+  "classification": "synthetic-no-private-media-no-credentials",
+  "timezone_cases": {
+    "utc_boundary": "2026-08-21T00:00:00Z",
+    "toronto_summer_offset": "America/Toronto (UTC-04:00)"
+  },
+  "reviews": [
+    {
+      "fixture_id": "review-person",
+      "kind": "person",
+      "camera": "front_door",
+      "start_time": "2026-08-20T03:30:00Z",
+      "local_date_toronto": "2026-08-19",
+      "object_ids": [
+        "object-person-1",
+        "object-package-1"
+      ],
+      "evidence": {
+        "snapshot": "fixture://snapshots/person-001.jpg",
+        "available": true
+      }
+    },
+    {
+      "fixture_id": "review-vehicle",
+      "kind": "vehicle",
+      "camera": "driveway",
+      "start_time": "2026-08-20T04:30:00Z",
+      "local_date_toronto": "2026-08-20",
+      "object_ids": [
+        "object-car-1"
+      ],
+      "evidence": {
+        "snapshot": "fixture://unavailable/vehicle-001.jpg",
+        "available": false
+      }
+    }
+  ],
+  "duplicate_update_case": {
+    "source_id": "evt-person-001",
+    "payload_indexes": [
+      0,
+      2
+    ],
+    "expected_legacy_rows": 1
+  },
+  "source_payloads": [
+    {
+      "type": "new",
+      "before": null,
+      "after": {
+        "id": "evt-person-001",
+        "camera": "front_door",
+        "label": "person",
+        "sub_label": "delivery",
+        "start_time": 1787196600,
+        "end_time": null,
+        "has_snapshot": true,
+        "has_clip": false,
+        "snapshot_uri": "fixture://snapshots/person-001.jpg"
+      }
+    },
+    {
+      "type": "end",
+      "before": null,
+      "after": {
+        "id": "evt-vehicle-001",
+        "camera": "driveway",
+        "label": "car",
+        "sub_label": "synthetic sedan",
+        "start_time": 1787200200,
+        "end_time": 1787200500,
+        "has_snapshot": false,
+        "has_clip": false
+      }
+    },
+    {
+      "type": "update",
+      "before": {
+        "id": "evt-person-001"
+      },
+      "after": {
+        "id": "evt-person-001",
+        "camera": "front_door",
+        "label": "person",
+        "sub_label": "delivery",
+        "start_time": 1787196600,
+        "end_time": 1787196900,
+        "has_snapshot": true,
+        "has_clip": false,
+        "snapshot_uri": "fixture://snapshots/person-001.jpg"
+      }
+    }
+  ],
+  "legacy_events": [
+    {
+      "id": 101,
+      "frigate_id": "evt-person-001",
+      "camera": "front_door",
+      "label": "person",
+      "sub_label": "delivery",
+      "start_time": "2026-08-20T03:30:00+00:00",
+      "end_time": "2026-08-20T03:35:00+00:00",
+      "snapshot_uri": "fixture://snapshots/person-001.jpg",
+      "clip_uri": null,
+      "caption": "Delivery person carrying a package",
+      "tags": [
+        "person",
+        "package"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 102,
+      "frigate_id": "evt-vehicle-001",
+      "camera": "driveway",
+      "label": "car",
+      "sub_label": "synthetic sedan",
+      "start_time": "2026-08-20T04:30:00+00:00",
+      "end_time": "2026-08-20T04:35:00+00:00",
+      "snapshot_uri": null,
+      "clip_uri": null,
+      "caption": "Vehicle detected in driveway",
+      "tags": [
+        "vehicle"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 103,
+      "frigate_id": "evt-person-utc-boundary",
+      "camera": "backyard",
+      "label": "person",
+      "sub_label": null,
+      "start_time": "2026-08-20T23:55:00+00:00",
+      "end_time": null,
+      "snapshot_uri": null,
+      "clip_uri": null,
+      "caption": null,
+      "tags": null,
+      "status": "pending"
+    }
+  ],
+  "expected": {
+    "timeline": {
+      "total": 3,
+      "items": [
+        {
+          "id": 101,
+          "frigate_id": "evt-person-001",
+          "camera": "front_door",
+          "label": "person",
+          "sub_label": "delivery",
+          "start_time": "2026-08-20T03:30:00Z",
+          "end_time": "2026-08-20T03:35:00Z",
+          "snapshot_uri": "fixture://snapshots/person-001.jpg",
+          "clip_uri": null,
+          "caption": "Delivery person carrying a package",
+          "tags": [
+            "person",
+            "package"
+          ],
+          "status": "done"
+        },
+        {
+          "id": 102,
+          "frigate_id": "evt-vehicle-001",
+          "camera": "driveway",
+          "label": "car",
+          "sub_label": "synthetic sedan",
+          "start_time": "2026-08-20T04:30:00Z",
+          "end_time": "2026-08-20T04:35:00Z",
+          "snapshot_uri": null,
+          "clip_uri": null,
+          "caption": "Vehicle detected in driveway",
+          "tags": [
+            "vehicle"
+          ],
+          "status": "done"
+        },
+        {
+          "id": 103,
+          "frigate_id": "evt-person-utc-boundary",
+          "camera": "backyard",
+          "label": "person",
+          "sub_label": null,
+          "start_time": "2026-08-20T23:55:00Z",
+          "end_time": null,
+          "snapshot_uri": null,
+          "clip_uri": null,
+          "caption": null,
+          "tags": null,
+          "status": "pending"
+        }
+      ]
+    },
+    "search": {
+      "person": [
+        "evt-person-utc-boundary",
+        "evt-person-001"
+      ],
+      "driveway": [
+        "evt-vehicle-001"
+      ],
+      "package": [
+        "evt-person-001"
+      ],
+      "no-match": []
+    },
+    "rule_summary": "Summary for 2026-08-20\nTotal events: 3\nBy label: person=2, car=1\nBy camera: front_door=1, driveway=1, backyard=1\n\nHighlights:\n- [03:30] front_door: Delivery person carrying a package\n- [04:30] driveway: Vehicle detected in driveway\n- [23:55] backyard: person detected",
+    "chat": {
+      "how_many_events": "Question: How many events?\n\nRetrieved context:\nRelated events:\n- [event:101] [2026-08-20 03:30] front_door/person: Delivery person carrying a package\n- [event:102] [2026-08-20 04:30] driveway/car: Vehicle detected in driveway\n\nAnswer:\nI found 2 related events (person×1, car×1) across front_door×1, driveway×1."
+    }
+  }
+}

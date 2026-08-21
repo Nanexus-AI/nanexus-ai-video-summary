@@ -97,3 +97,31 @@ Runtime auth/Evidence enforcement, authoritative Claim/ModelInvocation persisten
 ### Next step
 
 Stop after stage 1 acceptance. Do not begin FOUNDATION without a new task and prerequisite review.
+
+## 2026-08-21: FOUNDATION-001～006 Event Intelligence foundation
+
+### Goal
+
+Complete the reliable, auditable Stub AI Enrichment foundation in Event Intelligence without moving Video Summary runtime behavior or starting the cross-repository vertical slice.
+
+### Completed
+
+- Verified the Event Intelligence Alembic schema, ReviewItem ended trigger, atomic Job/Outbox creation, independent consumer group, Retry/DLQ/requeue lifecycle, deterministic Stub and Claim/API/Web audit display.
+- Verified missing-Evidence abstention and persisted Job/Attempt/Audit state for retry, dead-letter and operator requeue.
+- Added this repository's cross-repository Gate record and updated the migration plan status.
+
+### Verification results
+
+Event Intelligence backend: 149 passed and 3 existing external-service tests skipped. Ruff, Mypy strict (72 source files), Alembic single head `4b1f001006`, Web 5 tests, Web production build and diff checks passed. Failure tests cover restart recovery, timeout, duplicate delivery, poison messages, unavailable Evidence and DLQ requeue.
+
+### Boundary verification
+
+All runtime and persistence implementation remains in Event Intelligence. This repository added documentation only: no cross-repository import, shared database/ORM, direct Frigate/Evidence access, provider, Worker, API switch, legacy removal, publish or push.
+
+### Known limitations
+
+The isolated run skips three external PostgreSQL/Redis tests; the real-service run passed all 152 tests and preserved Redis AOF and Alembic state across kill/restart. No real AI provider is enabled in stage 2.
+
+### Next step
+
+Stop after stage 2. Stage 3 (`SLICE-001` onward) requires separate authorization and a fresh prerequisite review.
