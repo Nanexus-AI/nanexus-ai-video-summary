@@ -1,0 +1,29 @@
+{
+  "confidence": 0.643545,
+  "embedding_dimensions": 512,
+  "fixture_description": "generated geometric person/package-like synthetic image",
+  "fixture_sha256": "9ef07f90186536548c4764cc80f6a36350096a4336b5193b42fe9a36e82de038",
+  "identity": {
+    "device": "cpu",
+    "label_set_version": "security-camera-en-v1",
+    "model": "ViT-B-32",
+    "model_version": "openai+security-camera-en-v1+cpu+3.3.0",
+    "pretrained_variant": "openai",
+    "provider": "openclip"
+  },
+  "latency_median_seconds": 0.175,
+  "latency_seconds": [0.2122, 0.1735, 0.175],
+  "peak_rss_mb": 1514.7,
+  "result_hashes": [
+    "ec2cf4ed220749729e8fc197415db044ce4301af86512f025756c23cdbf39519",
+    "ec2cf4ed220749729e8fc197415db044ce4301af86512f025756c23cdbf39519",
+    "ec2cf4ed220749729e8fc197415db044ce4301af86512f025756c23cdbf39519"
+  ],
+  "stable": true,
+  "startup_seconds": 2.8069,
+  "tags": [
+    "person wearing red clothes",
+    "red car",
+    "person carrying a cardboard box"
+  ]
+}

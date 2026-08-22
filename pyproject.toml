@@ -22,15 +22,17 @@ dependencies = [
   "httpx>=0.28.0",
   "Pillow>=10.0.0",
   "numpy>=1.26.0",
-  "torch>=2.2.0",
-  "torchvision>=0.17.0",
-  "open-clip-torch>=2.26.0",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [project.optional-dependencies]
+openclip = [
+  "torch>=2.2.0",
+  "torchvision>=0.17.0",
+  "open-clip-torch>=2.26.0",
+]
 test = ["pytest>=8.3.0"]
 
 [tool.pytest.ini_options]

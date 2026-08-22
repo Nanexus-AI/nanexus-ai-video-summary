@@ -1,0 +1,10 @@
+services:
+  video-summary-stub-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.model-worker
+    environment:
+      MODEL_PROVIDER: openclip
+      AI_DEVICE: ${AI_DEVICE:-cpu}
+      OPENCLIP_MODEL: ${OPENCLIP_MODEL:-ViT-B-32}
+      OPENCLIP_PRETRAINED: ${OPENCLIP_PRETRAINED:-openai}

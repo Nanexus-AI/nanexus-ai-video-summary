@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     event_intelligence_token: str = ""
     event_intelligence_timeout_seconds: float = 10.0
     event_intelligence_poll_seconds: float = 1.0
+    # Dedicated enrichment worker only. Cloud providers remain unsupported/default-off.
+    model_provider: str = "stub"
+    model_timeout_seconds: float = 60.0
+    model_max_image_bytes: int = 10 * 1024 * 1024
+    # Rollback-only switch for the legacy Search path. New API processes never infer.
+    legacy_api_model_inference_enabled: bool = False
 
     # Summary worker
     summary_queue_key: str = "nanexus:summary:jobs"

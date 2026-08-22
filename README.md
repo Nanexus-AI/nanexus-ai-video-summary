@@ -89,6 +89,17 @@ LLM_MODEL=gpt-4o-mini
 
 未配置 Key 时默认 `rule` / `extractive`，仍可完整演示。
 
+## Event Intelligence OpenCLIP Worker（迁移阶段 4）
+
+跨仓 enrichment Worker 默认使用安全 Stub。启用本地 OpenCLIP 时使用独立 model overlay；API 服务不会加载模型：
+
+```bash
+PROCESSOR_API_TOKEN=replace-me docker-compose \
+  -f compose.slice.yaml -f compose.model.yaml up --build
+```
+
+关键配置为 `MODEL_PROVIDER=stub|openclip`、`AI_DEVICE=auto|cpu|cuda`、`OPENCLIP_MODEL` 和 `OPENCLIP_PRETRAINED`。Worker 只通过 Event Intelligence 的 job-scoped Evidence API 读取媒体，不接受 Frigate URL、Token 或本地文件路径。
+
 ## Android App
 
 Jetpack Compose 客户端在 `android/`，对接同一套 API（Today / Timeline / Search / Settings）。

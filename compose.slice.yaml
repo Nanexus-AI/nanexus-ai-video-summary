@@ -1,6 +1,12 @@
 name: nanexus-video-summary-slice
 
 services:
+  synthetic-frigate:
+    image: python:3.12-slim
+    command: ["python", "/smoke/frigate_evidence_server.py"]
+    volumes:
+      - ./tests/smoke:/smoke:ro
+
   event-db:
     image: postgres:16-alpine
     environment:
@@ -32,6 +38,26 @@ services:
       event-db:
         condition: service_healthy
 
+  event-seed:
+    build:
+      context: ../nanexus_frigate_extension/backend
+      target: production
+    command:
+      - uv
+      - run
+      - --no-sync
+      - python
+      - /smoke/seed_event_intelligence.py
+    environment:
+      DATABASE_URL: postgresql+asyncpg://nanexus:nanexus@event-db:5432/event_intelligence
+      ENRICHMENT_PROCESSOR_MODE: external
+    volumes:
+      - ../nanexus_frigate_extension/fixtures/frigate/0.17/vehicle-lifecycle:/fixtures:ro
+      - ./tests/smoke:/smoke:ro
+    depends_on:
+      event-migrate:
+        condition: service_completed_successfully
+
   event-intelligence:
     build:
       context: ../nanexus_frigate_extension/backend
@@ -41,9 +67,13 @@ services:
       REDIS_URL: redis://event-redis:6379/0
       PROCESSOR_API_TOKEN: ${PROCESSOR_API_TOKEN:?set PROCESSOR_API_TOKEN}
       ENRICHMENT_PROCESSOR_MODE: external
+      FRIGATE_HTTP_BASE_URL: http://synthetic-frigate:8080
+      FRIGATE_HTTP_TRUSTED_INTERNAL: "true"
     depends_on:
-      event-migrate:
+      event-seed:
         condition: service_completed_successfully
+      synthetic-frigate:
+        condition: service_started
     ports:
       - "127.0.0.1:18000:8000"
 
@@ -72,6 +102,7 @@ services:
       EVENT_INTELLIGENCE_TOKEN: ${PROCESSOR_API_TOKEN:?set PROCESSOR_API_TOKEN}
       EVENT_INTELLIGENCE_TIMEOUT_SECONDS: 10
       EVENT_INTELLIGENCE_POLL_SECONDS: 1
+      MODEL_PROVIDER: stub
     depends_on:
       event-intelligence:
         condition: service_started

@@ -147,3 +147,41 @@ Docker Compose v2 is unavailable locally, so services were not started. A daemon
 ### Next step
 
 Stop at the stage 3 gate. Do not start MODEL-001 or later work.
+
+## 2026-08-21: MODEL-001～006 OpenCLIP Provider migration
+
+### Goal
+
+Move reusable OpenCLIP inference behind a worker-only Provider while preserving Stub fallback, public Evidence access and authoritative base-owned audit records.
+
+### Completed
+
+Added the Provider interface, deterministic Stub, lazy OpenCLIP image/text embedding and zero-shot analysis, configuration factory, dedicated model-worker image, API isolation switch, media validation, retry/abstain behavior, synthetic Compose smoke services and repeatable CPU benchmark.
+
+### Data and contract changes
+
+No wire schema or Video Summary database changed. Event Intelligence's existing ModelInvocation column now receives the previously omitted `latency_ms`. Model/pretrained/device/label-set identity remains within the frozen v1 bounded identity fields.
+
+### Verification results
+
+Video Summary: 36 passed, compileall and diff check passed. Event Intelligence: 152 passed/3 skipped, Ruff and strict Mypy passed. Stub and OpenCLIP Compose configurations validated. Public API closed loops succeeded with both Stub and real CPU OpenCLIP. CPU baseline: 2.8069 s startup, 0.1750 s median single image, 1514.7 MiB peak RSS, stable output across three runs.
+
+### Failure tests
+
+Unsupported type, empty/oversized/corrupt image, timeout, retryable model failure without Result submission, audited decode abstention, incompatible Provider configuration and API heavy-import isolation are covered.
+
+### Compatibility impact
+
+Stub remains the default. The frozen API Search path now defaults to its existing keyword fallback and requires an explicit rollback switch to run legacy in-process inference. Old services and tables remain present.
+
+### Known limitations
+
+The quality baseline is synthetic and English-only. OpenCLIP reports a QuickGELU warning for this installed model/tag combination. Weight licensing remains a release Gate item.
+
+### Rollback
+
+Set `MODEL_PROVIDER=stub` or omit `compose.model.yaml`. The legacy chain remains available; no data deletion or production switch occurred.
+
+### Next step
+
+Stop at stage 4. Stage 5 SEARCH-001～007 requires separate authorization and its storage decision must be reconfirmed.

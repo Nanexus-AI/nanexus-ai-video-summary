@@ -455,3 +455,9 @@ Job possession alone grants no media access. Video Summary must use the future a
 Video Summary now integrates through EventIntelligenceClient only. It consumes the public Processor Capability, Job, Subject, job-scoped Evidence and Result endpoints using independent v1 DTO mirrors. It never imports base source or persistence types.
 
 The external Stub Worker performs deterministic local processing and submits auditable invocation facts and a Caption Claim. The stage-3 Compose overlay selects ENRICHMENT_PROCESSOR_MODE=external; the base default remains internal_stub, preserving rollback and the old Video Summary chain.
+
+## Stage 4 worker-only model boundary
+
+OpenCLIP is now a Video Summary Provider loaded only by `services.event_intelligence_worker`. The normal API process defaults to keyword fallback and does not import Torch/OpenCLIP. A frozen legacy API inference switch exists only for rollback until the Search migration stage.
+
+The Worker consumes opaque Evidence bytes solely through the Event Intelligence Processor API, validates type/size/decode, and writes only versioned Results. Event Intelligence remains the sole owner of Job, Evidence, Claim and ModelInvocation persistence. `MODEL_PROVIDER=stub|openclip` selects the implementation; Stub is the default and no cloud provider is registered.

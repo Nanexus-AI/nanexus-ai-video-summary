@@ -6,7 +6,14 @@ from sqlalchemy import Select, or_, select
 from sqlalchemy.orm import Session
 
 from nanexus.models import Event
-from nanexus.vision import get_vision_pipeline
+from nanexus.config import get_settings
+
+
+def get_vision_pipeline():
+    """Rollback-only lazy import retained for baseline test compatibility."""
+    from nanexus.vision import get_vision_pipeline as factory
+
+    return factory()
 
 
 def search_events(
@@ -23,7 +30,7 @@ def search_events(
     Semantic search via pgvector when embeddings exist; keyword fallback in stub mode
     or when no vectors are available.
     """
-    pipeline = get_vision_pipeline()
+    settings = get_settings()
     filters = [Event.embedding.is_not(None), Event.status == "done"]
     if camera:
         filters.append(Event.camera == camera)
@@ -34,6 +41,14 @@ def search_events(
     if until:
         filters.append(Event.start_time < until)
 
+    if not settings.legacy_api_model_inference_enabled:
+        events = _keyword_search(
+            db, query, limit=limit, camera=camera, label=label, since=since, until=until
+        )
+        return events, [], "keyword-stub"
+
+    # Rollback-only legacy path. Kept until the later Search migration stage.
+    pipeline = get_vision_pipeline()
     if pipeline.mode == "stub":
         return _keyword_search(db, query, limit=limit, camera=camera, label=label, since=since, until=until), [], "keyword-stub"
 

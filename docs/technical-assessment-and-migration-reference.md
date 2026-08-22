@@ -817,6 +817,10 @@ Event Intelligence
 | 测试 | 明显不足 |
 | 长期演进 | 应依赖 Event Intelligence 渐进重构 |
 
+### 2026-08-21 migration update
+
+The stage-4 OpenCLIP assessment items are now implemented through the public Event Intelligence boundary. OpenCLIP is worker-only, the API defaults to a non-model fallback, media input is job-scoped and validated, and authoritative Claims/Invocations retain Evidence and latency traceability. The legacy implementation remains frozen for rollback. Embedding storage and semantic Search are intentionally unchanged and remain stage 5 work.
+
 ## 16. 建议的第一个正式改造任务
 
 在 Event Intelligence 基座中实现一个最小 AI Enrichment 垂直切片：

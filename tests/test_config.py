@@ -9,3 +9,5 @@ def test_current_configuration_defaults_are_stable(monkeypatch):
     assert settings.chat_mode == "extractive"
     assert settings.frigate_token == ""
     assert settings.llm_api_key == ""
+    assert settings.model_provider == "stub"
+    assert settings.legacy_api_model_inference_enabled is False

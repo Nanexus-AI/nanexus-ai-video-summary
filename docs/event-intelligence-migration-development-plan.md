@@ -591,6 +591,8 @@ SLICE-001～005 已完成代码与隔离集成验收；证据见 [验收记录](
 
 ## 10. 阶段 4：OpenCLIP Provider 迁移
 
+> 实施状态（2026-08-21）：MODEL-001～006 已完成并通过阶段退出 Gate；验收见 [`2026-08-21-model-001-006-gate.md`](./architecture-reviews/2026-08-21-model-001-006-gate.md)。未开始阶段 5。
+
 ### 10.1 目标
 
 把旧项目中可复用的 OpenCLIP 能力迁移成独立 Provider，同时保留 Stub 和安全降级。
@@ -667,6 +669,10 @@ SLICE-001～005 已完成代码与隔离集成验收；证据见 [验收记录](
 - 固定 Fixture 有质量基线；
 - CPU 环境可运行；
 - 云端 Provider 仍默认关闭。
+
+### 10.4 实际退出结论（2026-08-21）
+
+Stub/OpenCLIP 配置切换、API 模型隔离、失败/abstain、Evidence 输入限制、Claim/Invocation 追溯、真实公开 API 闭环和 CPU 固定基线均已通过。旧链路未删除；`MODEL_PROVIDER=stub` 为默认回退。阶段 5 需要单独授权。
 
 ## 11. 阶段 5：Embedding 与语义搜索迁移
 

@@ -26,6 +26,12 @@ class SubjectMetadata(BaseModel):
 
 
 @dataclass(frozen=True)
+class EvidenceContent:
+    content: bytes
+    content_type: str
+
+
+@dataclass(frozen=True)
 class EventIntelligenceError(Exception):
     code: str
     message: str
@@ -121,11 +127,17 @@ class EventIntelligenceClient:
         response = await self._request("GET", f"/api/v1/processor/jobs/{job_id}/subject")
         return SubjectMetadata.model_validate(response.json())
 
-    async def evidence(self, job_id: UUID, evidence_id: UUID) -> bytes:
+    async def evidence(self, job_id: UUID, evidence_id: UUID) -> EvidenceContent:
         response = await self._request(
             "GET", f"/api/v1/processor/jobs/{job_id}/evidence/{evidence_id}"
         )
-        return response.content
+        return EvidenceContent(
+            content=response.content,
+            content_type=response.headers.get("content-type", "")
+            .split(";", 1)[0]
+            .strip()
+            .lower(),
+        )
 
     async def submit(self, result: EnrichmentResult) -> bool:
         response = await self._request(
