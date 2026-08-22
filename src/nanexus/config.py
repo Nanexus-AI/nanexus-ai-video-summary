@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     openclip_pretrained: str = "openai"
     snapshots_dir: str = "data/snapshots"
     public_base_url: str = "http://127.0.0.1:8000"
+    event_intelligence_url: str = "http://event-intelligence:8000"
+    event_intelligence_token: str = ""
+    event_intelligence_timeout_seconds: float = 10.0
+    event_intelligence_poll_seconds: float = 1.0
 
     # Summary worker
     summary_queue_key: str = "nanexus:summary:jobs"

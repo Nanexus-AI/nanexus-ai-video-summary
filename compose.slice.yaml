@@ -1,0 +1,77 @@
+name: nanexus-video-summary-slice
+
+services:
+  event-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: event_intelligence
+      POSTGRES_USER: nanexus
+      POSTGRES_PASSWORD: nanexus
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nanexus -d event_intelligence"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  event-redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  event-migrate:
+    build:
+      context: ../nanexus_frigate_extension/backend
+      target: production
+    command: ["uv", "run", "--no-sync", "alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://nanexus:nanexus@event-db:5432/event_intelligence
+    depends_on:
+      event-db:
+        condition: service_healthy
+
+  event-intelligence:
+    build:
+      context: ../nanexus_frigate_extension/backend
+      target: production
+    environment:
+      DATABASE_URL: postgresql+asyncpg://nanexus:nanexus@event-db:5432/event_intelligence
+      REDIS_URL: redis://event-redis:6379/0
+      PROCESSOR_API_TOKEN: ${PROCESSOR_API_TOKEN:?set PROCESSOR_API_TOKEN}
+      ENRICHMENT_PROCESSOR_MODE: external
+    depends_on:
+      event-migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:18000:8000"
+
+  event-pipeline:
+    build:
+      context: ../nanexus_frigate_extension/backend
+      target: production
+    command: ["uv", "run", "--no-sync", "nanexus-pipeline-worker"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://nanexus:nanexus@event-db:5432/event_intelligence
+      REDIS_URL: redis://event-redis:6379/0
+      PROCESSOR_API_TOKEN: ${PROCESSOR_API_TOKEN:?set PROCESSOR_API_TOKEN}
+      ENRICHMENT_PROCESSOR_MODE: external
+    depends_on:
+      event-intelligence:
+        condition: service_started
+      event-redis:
+        condition: service_healthy
+
+  video-summary-stub-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.slice-worker
+    environment:
+      EVENT_INTELLIGENCE_URL: http://event-intelligence:8000
+      EVENT_INTELLIGENCE_TOKEN: ${PROCESSOR_API_TOKEN:?set PROCESSOR_API_TOKEN}
+      EVENT_INTELLIGENCE_TIMEOUT_SECONDS: 10
+      EVENT_INTELLIGENCE_POLL_SECONDS: 1
+    depends_on:
+      event-intelligence:
+        condition: service_started

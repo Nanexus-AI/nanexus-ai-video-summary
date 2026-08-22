@@ -125,3 +125,25 @@ The isolated run skips three external PostgreSQL/Redis tests; the real-service r
 ### Next step
 
 Stop after stage 2. Stage 3 (`SLICE-001` onward) requires separate authorization and a fresh prerequisite review.
+
+## 2026-08-21: SLICE-001-005 first cross-repository vertical slice
+
+### Goal
+
+Consume Event Intelligence only through public v1 contracts and complete the external Stub Caption loop without switching or deleting legacy paths.
+
+### Completed
+
+Added the independent HTTP Client, deterministic Worker, service identity, job-scoped Evidence access, Result submission and two-repository Compose overlay. Event Intelligence remains sole owner of ReviewItem, Evidence, Claim and ModelInvocation.
+
+### Verification results
+
+Video Summary: 20 passed; bytecode compilation and diff check passed. Event Intelligence: 152 passed/3 skipped; Ruff and strict Mypy passed. Compose v1 config validation passed.
+
+### Known limitations
+
+Docker Compose v2 is unavailable locally, so services were not started. A daemon-backed smoke run with real media configuration remains a stage 4 prerequisite.
+
+### Next step
+
+Stop at the stage 3 gate. Do not start MODEL-001 or later work.

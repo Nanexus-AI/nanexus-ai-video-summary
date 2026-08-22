@@ -449,3 +449,9 @@ The only allowed dependency is `Video Summary → Event Intelligence` through pu
 Processor v1 integration consists of ended `review_item` Jobs with opaque Snapshot Evidence IDs, structured Results with invocation facts and Caption/Tags claims, Capability negotiation, object-scoped Evidence read/Result submit authority, and default result reuse during Replay. Explicit reprocess is required for a new invocation.
 
 Job possession alone grants no media access. Video Summary must use the future authorized Event Intelligence Evidence API and may not construct Frigate URLs. Normative decisions are ADR-011/012 in Event Intelligence; consumer acceptance is under `docs/architecture-reviews/`.
+
+## Stage 3 public runtime boundary
+
+Video Summary now integrates through EventIntelligenceClient only. It consumes the public Processor Capability, Job, Subject, job-scoped Evidence and Result endpoints using independent v1 DTO mirrors. It never imports base source or persistence types.
+
+The external Stub Worker performs deterministic local processing and submits auditable invocation facts and a Caption Claim. The stage-3 Compose overlay selects ENRICHMENT_PROCESSOR_MODE=external; the base default remains internal_stub, preserving rollback and the old Video Summary chain.
