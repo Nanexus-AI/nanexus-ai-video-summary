@@ -1,0 +1,54 @@
+{
+  "fixture_version": "1.0",
+  "classification": "synthetic-no-private-media-no-credentials",
+  "local_date": "2026-08-20",
+  "timezone": "America/Toronto",
+  "review_cases": [
+    {
+      "subject": "11",
+      "lifecycle": "active",
+      "timestamp": "2026-08-20T03:30:00Z",
+      "caption": "Person at the front door",
+      "outcome": "send"
+    },
+    {
+      "subject": "11",
+      "lifecycle": "ended",
+      "timestamp": "2026-08-20T03:35:00Z",
+      "caption": "Person at the front door",
+      "outcome": "send"
+    },
+    {
+      "subject": "12",
+      "lifecycle": "ended",
+      "timestamp": "2026-08-20T04:30:00Z",
+      "caption": null,
+      "outcome": "no_action"
+    },
+    {
+      "subject": "13",
+      "lifecycle": "ended",
+      "timestamp": "2026-08-20T23:55:00Z",
+      "caption": "Person in backyard",
+      "outcome": "send"
+    }
+  ],
+  "expected_review_v1": {
+    "raw_count": 4,
+    "review_count": 2,
+    "duplicate_count": 1,
+    "covered_subject_ids": [
+      "00000000-0000-0000-0003-000000000012",
+      "00000000-0000-0000-0003-000000000013"
+    ],
+    "utc_bounds": [
+      "2026-08-20T04:00:00+00:00",
+      "2026-08-21T04:00:00+00:00"
+    ],
+    "highlight_subject_ids": [
+      "00000000-0000-0000-0003-000000000013",
+      "00000000-0000-0000-0003-000000000012"
+    ],
+    "output_sha256": "3e23d38df2eeeae42b471348dd1d51600e4dfed146805e5d7157d0ae2c816c36"
+  }
+}

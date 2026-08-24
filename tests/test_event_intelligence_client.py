@@ -1,6 +1,7 @@
 import asyncio
 import functools
 
+
 def async_test(function):
     @functools.wraps(function)
     def wrapper(*args, **kwargs):
@@ -8,8 +9,9 @@ def async_test(function):
     return wrapper
 
 import copy
-from io import BytesIO
 import json
+from datetime import UTC, datetime
+from io import BytesIO
 from pathlib import Path
 
 import httpx
@@ -20,16 +22,15 @@ from nanexus.event_intelligence_client import (
     EventIntelligenceError,
     IncompatibleContractError,
 )
-from services.event_intelligence_worker.main import process_once
-from nanexus.providers.stub import StubProvider
 from nanexus.providers.base import (
-    AnalysisResult,
     ModelIdentity,
     Provider,
     ProviderError,
     ProviderHealth,
     ResourceRequirements,
 )
+from nanexus.providers.stub import StubProvider
+from services.event_intelligence_worker.main import process_once
 
 
 def fixture_image() -> bytes:
@@ -89,6 +90,59 @@ async def test_client_classifies_permission_and_transient_failures() -> None:
         with pytest.raises(EventIntelligenceError) as caught:
             await client.next_job()
         assert caught.value.retryable is True
+
+
+@async_test
+async def test_client_reads_review_context_only_through_public_events_api() -> None:
+    subject_id = "00000000-0000-0000-0000-000000000101"
+    observation_id = "00000000-0000-0000-0000-000000000102"
+    requested_paths = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requested_paths.append(request.url.path)
+        if request.url.path == "/api/v1/events":
+            assert request.url.params["event_kind"] == "review"
+            return httpx.Response(
+                200,
+                json={
+                    "items": [{"id": observation_id, "lifecycle": "ended"}],
+                    "total": 1,
+                    "limit": 100,
+                    "offset": 0,
+                },
+            )
+        if request.url.path == f"/api/v1/events/{observation_id}":
+            return httpx.Response(
+                200,
+                json={
+                    "id": observation_id,
+                    "review_item_id": subject_id,
+                    "source_instance_id": "00000000-0000-0000-0000-000000000103",
+                    "source_namespace": "frigate.review",
+                    "source_entity_id": "review-public-1",
+                    "source_revision": "ended:2",
+                    "lifecycle": "ended",
+                    "occurred_at": "2026-08-20T12:00:00Z",
+                    "labels": ["person"],
+                    "zones": ["porch"],
+                    "first_occurred_at": "2026-08-20T12:00:00Z",
+                    "last_occurred_at": "2026-08-20T12:01:00Z",
+                    "objects": [],
+                    "enrichments": [],
+                    "decisions": [],
+                },
+            )
+        raise AssertionError(request.url)
+
+    async with EventIntelligenceClient(
+        "http://ei", "secret", transport=httpx.MockTransport(handler)
+    ) as client:
+        reviews = await client.review_details(
+            occurred_from=datetime(2026, 8, 20, tzinfo=UTC),
+            occurred_to=datetime(2026, 8, 21, tzinfo=UTC),
+        )
+    assert [str(review.review_item_id) for review in reviews] == [subject_id]
+    assert requested_paths == ["/api/v1/events", f"/api/v1/events/{observation_id}"]
 
 
 @async_test

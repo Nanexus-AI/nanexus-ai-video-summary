@@ -29,6 +29,9 @@ class SummaryJob:
     summary_date: str  # YYYY-MM-DD
     camera: str | None = None
     mode: str | None = None
+    summary_id: str | None = None
+    timezone: str = "UTC"
+    site_id: str = "default"
 
     def to_json(self) -> str:
         return json.dumps(asdict(self))

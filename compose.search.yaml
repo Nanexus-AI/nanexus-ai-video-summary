@@ -31,6 +31,26 @@ services:
     depends_on:
       video-migrate:
         condition: service_completed_successfully
+  summary-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.search
+    command: ["python", "-m", "services.summary_worker.main"]
+    environment:
+      <<: *search-env
+      EVENT_INTELLIGENCE_URL: http://event-intelligence:8000
+      EVENT_INTELLIGENCE_TOKEN: ${EVENT_INTELLIGENCE_TOKEN:-}
+      SUMMARY_MODE: ${SUMMARY_MODE:-rule}
+      SUMMARY_TIMEZONE: ${SUMMARY_TIMEZONE:-UTC}
+      SUMMARY_SITE_ID: ${SUMMARY_SITE_ID:-default}
+      SUMMARY_HOUR: ${SUMMARY_HOUR:-23}
+      SUMMARY_MINUTE: ${SUMMARY_MINUTE:-50}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+    depends_on:
+      video-migrate:
+        condition: service_completed_successfully
   model-service:
     build:
       context: .
@@ -51,6 +71,8 @@ services:
       <<: *search-env
       MODEL_SERVICE_URL: http://model-service:8010
       EVENT_INTELLIGENCE_URL: http://event-intelligence:8000
+      SUMMARY_TIMEZONE: ${SUMMARY_TIMEZONE:-UTC}
+      SUMMARY_SITE_ID: ${SUMMARY_SITE_ID:-default}
       LEGACY_API_MODEL_INFERENCE_ENABLED: "false"
     depends_on:
       video-migrate:

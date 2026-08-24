@@ -114,6 +114,49 @@ class DailySummary(Base):
     )
 
 
+class Summary(Base):
+    """Versioned application summary; source facts stay in Event Intelligence."""
+
+    __tablename__ = "summaries"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('queued','running','ready','failed')",
+            name="ck_summary_status",
+        ),
+        UniqueConstraint(
+            "summary_type",
+            "local_date",
+            "timezone",
+            "site_id",
+            "camera_id",
+            "generator",
+            "model_version",
+            "prompt_version",
+            name="uq_summary_generation",
+            postgresql_nulls_not_distinct=True,
+        ),
+        Index("ix_summary_lookup", "summary_type", "local_date", "site_id", "camera_id"),
+        Index("ix_summary_status", "status", "created_at"),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    summary_type: Mapped[str] = mapped_column(String(32), nullable=False, default="daily")
+    local_date: Mapped[date] = mapped_column(Date, nullable=False)
+    timezone: Mapped[str] = mapped_column(String(128), nullable=False)
+    site_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    camera_id: Mapped[str | None] = mapped_column(String(255))
+    content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    structured_content: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    source_subject_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    generator: Mapped[str] = mapped_column(String(32), nullable=False)
+    model_version: Mapped[str] = mapped_column(String(255), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Conversation(Base):
     __tablename__ = "conversations"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

@@ -211,3 +211,23 @@ Real PostgreSQL/pgvector upgrade passed at `5a1c001007` and created all six expe
 ### Next step
 
 Stop after stage 5. Do not start SUMMARY-001. Stage 6 requires the real-database and relevance gates above plus separate authorization.
+
+## 2026-08-24: SUMMARY-001～008 Summary migration
+
+### Goal
+
+Move Daily Summary from legacy Event enumeration to an application-owned, precomputed product capability based on Event Intelligence ReviewItem/Claim/Decision/Feedback public DTOs and Site local dates.
+
+### Completed
+
+Added the versioned `summaries` model and `6b1c001008` migration; Toronto/UTC/DST half-open bounds; canonical ReviewItem and Object deduplication; ended preference and missing Claim/Evidence degradation; explainable importance scoring and duplicate compression; deterministic Rule v1; structured-only LLM with character, Token and estimated Cost limits plus audited fallback; independent worker scheduling/manual rebuild; observable queued/running/ready/failed status; ready-only activation and supersede; and fixed legacy/Review comparison metrics and output hash.
+
+Event Intelligence received only a backward-compatible public DTO extension (`review_item_id`, `site_id`, `camera_timezone`). No database, ORM, Frigate URL, Evidence source reference or media crossed the boundary. The old `/summary/*`, `daily_summaries` and Event chain remain unchanged for rollback.
+
+### Verification
+
+Video Summary full backend: 62 passed. Event Intelligence backend: 153 passed/3 skipped with explicit configured asyncio mode; Ruff passed for changed base files. Real PostgreSQL 16/pgvector migration reached `6b1c001008`; site-level NULL-camera uniqueness, idempotent queue identity, ready-only supersede and LLM-to-Rule fallback were exercised against the real database. Fixed comparison locks Review dedupe, coverage, Toronto bounds, highlight order and SHA-256 output stability.
+
+### Exit and stop
+
+All stage 6 exit conditions are met for the new v1 path. Existing stage-5 representative HNSW EXPLAIN/human relevance work remains a deployment/quality gate and was not reclassified. Stop after stage 6; do not begin CHAT-001～007 without separate authorization.

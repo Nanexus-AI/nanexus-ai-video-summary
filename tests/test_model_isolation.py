@@ -17,3 +17,15 @@ def test_heavy_runtime_is_confined_to_worker_modules() -> None:
     api_source = open("services/api/main.py", encoding="utf-8").read()
     assert "open_clip" not in api_source
     assert "import torch" not in api_source
+
+
+def test_summary_v1_worker_uses_event_intelligence_not_legacy_or_frigate() -> None:
+    worker_source = open("services/summary_worker/main.py", encoding="utf-8").read()
+    assert "EventIntelligenceClient" in worker_source
+    assert "build_daily_summary" not in worker_source
+    assert "nanexus.models import Event" not in worker_source
+    assert "frigate" not in worker_source.lower()
+
+    compose_source = open("compose.search.yaml", encoding="utf-8").read()
+    assert "summary-worker:" in compose_source
+    assert 'services.summary_worker.main' in compose_source

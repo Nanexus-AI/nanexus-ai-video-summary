@@ -1,4 +1,6 @@
 from nanexus.config import Settings
+
+
 def test_current_configuration_defaults_are_stable(monkeypatch):
     for name in ("DATABASE_URL", "REDIS_URL", "MQTT_HOST", "MQTT_PORT", "MQTT_TOPIC", "AI_MODE", "SUMMARY_MODE", "CHAT_MODE", "FRIGATE_TOKEN", "LLM_API_KEY"):
         monkeypatch.delenv(name, raising=False)
@@ -11,3 +13,8 @@ def test_current_configuration_defaults_are_stable(monkeypatch):
     assert settings.llm_api_key == ""
     assert settings.model_provider == "stub"
     assert settings.legacy_api_model_inference_enabled is False
+    assert settings.summary_site_id == "default"
+    assert settings.summary_rule_version == "rule-v1"
+    assert settings.summary_llm_max_input_chars == 16_000
+    assert settings.summary_llm_max_tokens == 700
+    assert settings.summary_llm_max_cost_micros == 25_000

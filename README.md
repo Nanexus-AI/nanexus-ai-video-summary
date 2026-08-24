@@ -19,6 +19,8 @@ Frigate 之上的 AI 视频摘要 / 时间线 / 语义检索 / 问答（当前 *
   - `GET /timeline` / `GET /summary/today`
   - `POST /search` / `POST /chat`
   - `GET /events/{id}/snapshot`
+  - `GET /api/v1/summaries/{local_date}`（只读基座化预计算摘要）
+  - `POST /api/v1/summaries/rebuild` / `GET /api/v1/summaries/jobs/{id}`
 - 真实 Frigate：改 `.env` 后用 `scripts/import_frigate_events.py` 回填
 
 ## 快速开始

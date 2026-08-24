@@ -1,16 +1,23 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
+from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, RedirectResponse, Response
+from sqlalchemy import func, select, text
+from sqlalchemy.orm import Session
+
 from nanexus.chat import run_chat
 from nanexus.config import get_settings
 from nanexus.db import get_db, init_db
-from nanexus.event_intelligence_client import EventIntelligenceClient, EventIntelligenceError
+from nanexus.event_intelligence_client import (
+    EventIntelligenceClient,
+    EventIntelligenceError,
+)
 from nanexus.media import local_snapshot_path, snapshots_dir
-from nanexus.models import Conversation, DailySummary, Event
+from nanexus.models import Conversation, DailySummary, Event, Summary
 from nanexus.queue import AIJob, AIQueue, SummaryJob
 from nanexus.schemas import (
     ChatRequest,
@@ -25,16 +32,27 @@ from nanexus.schemas import (
     SemanticSearchHit,
     SemanticSearchRequest,
     SemanticSearchResponse,
+    SummaryJobV1Response,
     SummaryOut,
     SummaryQueuedResponse,
+    SummaryRebuildV1Request,
     SummaryResponse,
+    SummaryV1Out,
+    SummaryV1Response,
     TimelineResponse,
 )
 from nanexus.search import search_events
-from nanexus.semantic_search import QueryEmbeddingUnavailable, embed_query, semantic_search
-from nanexus.summary import build_daily_summary, fallback_summary_text
-from sqlalchemy import func, select, text
-from sqlalchemy.orm import Session
+from nanexus.semantic_search import (
+    QueryEmbeddingUnavailable,
+    embed_query,
+    semantic_search,
+)
+from nanexus.summary import (
+    build_daily_summary,
+    fallback_summary_text,
+    local_day_bounds,
+    queue_summary_generation,
+)
 
 settings = get_settings()
 app = FastAPI(title="Nanexus AI Video Summary", version="0.3.0")
@@ -139,6 +157,72 @@ def regenerate_summary(
         camera=body.camera,
         mode=mode,
     )
+
+
+@app.get("/api/v1/summaries/{local_date}", response_model=SummaryV1Response)
+def summary_v1(
+    local_date: date,
+    timezone: str,
+    site_id: str = "default",
+    camera_id: str | None = None,
+    db: Session = Depends(get_db),
+) -> SummaryV1Response:
+    """Read the active precomputed Summary; this endpoint never generates inline."""
+    filters = [
+        Summary.summary_type == "daily",
+        Summary.local_date == local_date,
+        Summary.timezone == timezone,
+        Summary.site_id == site_id,
+        Summary.status == "ready",
+        Summary.superseded_at.is_(None),
+    ]
+    filters.append(Summary.camera_id.is_(None) if camera_id is None else Summary.camera_id == camera_id)
+    summary = db.scalar(select(Summary).where(*filters).order_by(Summary.created_at.desc()))
+    return SummaryV1Response(
+        summary=SummaryV1Out.model_validate(summary) if summary is not None else None
+    )
+
+
+@app.post("/api/v1/summaries/rebuild", response_model=SummaryJobV1Response)
+def rebuild_summary_v1(
+    body: SummaryRebuildV1Request, db: Session = Depends(get_db)
+) -> SummaryJobV1Response:
+    """Queue generation only; LLM and Event Intelligence calls remain worker-only."""
+    try:
+        local_day_bounds(body.local_date, body.timezone)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    summary = queue_summary_generation(
+        db,
+        day=body.local_date,
+        timezone=body.timezone,
+        site_id=body.site_id,
+        camera_id=body.camera_id,
+        mode=body.mode,
+    )
+    if summary.status in {"queued", "failed"}:
+        summary.status = "queued"
+        db.add(summary)
+        db.commit()
+        AIQueue().enqueue_summary(
+            SummaryJob(
+                summary_id=str(summary.id),
+                summary_date=body.local_date.isoformat(),
+                camera=body.camera_id,
+                mode=body.mode,
+                timezone=body.timezone,
+                site_id=body.site_id,
+            )
+        )
+    return SummaryJobV1Response(id=summary.id, status=summary.status)
+
+
+@app.get("/api/v1/summaries/jobs/{summary_id}", response_model=SummaryJobV1Response)
+def summary_job_v1(summary_id: UUID, db: Session = Depends(get_db)) -> SummaryJobV1Response:
+    summary = db.get(Summary, summary_id)
+    if summary is None:
+        raise HTTPException(status_code=404, detail="summary job not found")
+    return SummaryJobV1Response(id=summary.id, status=summary.status)
 
 
 @app.post("/search", response_model=SearchResponse)

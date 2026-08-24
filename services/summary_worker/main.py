@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import logging
 import signal
 import sys
@@ -11,8 +12,16 @@ from zoneinfo import ZoneInfo
 
 from nanexus.config import get_settings
 from nanexus.db import SessionLocal, init_db
+from nanexus.event_intelligence_client import EventIntelligenceClient
+from nanexus.models import Summary
 from nanexus.queue import AIQueue, SummaryJob
-from nanexus.summary import build_daily_summary
+from nanexus.summary import (
+    aggregate_reviews,
+    complete_summary_generation,
+    fail_summary_generation,
+    local_day_bounds,
+    queue_summary_generation,
+)
 
 logging.basicConfig(
     level=get_settings().log_level,
@@ -43,16 +52,54 @@ def _now() -> datetime:
 def process_job(job: SummaryJob) -> None:
     day = date.fromisoformat(job.summary_date)
     db = SessionLocal()
+    summary: Summary | None = None
     try:
-        summary = build_daily_summary(db, day, camera=job.camera, mode=job.mode)
+        summary = db.get(Summary, job.summary_id) if job.summary_id else None
+        if summary is None:
+            summary = queue_summary_generation(
+                db,
+                day=day,
+                timezone=job.timezone,
+                site_id=job.site_id,
+                camera_id=job.camera,
+                mode=job.mode or get_settings().summary_mode,
+            )
+        if summary.status == "ready":
+            logger.info("summary job %s already ready", summary.id)
+            return
+        summary.status = "running"
+        db.add(summary)
+        db.commit()
+        start, end = local_day_bounds(day, summary.timezone)
+
+        async def load_reviews():
+            settings = get_settings()
+            async with EventIntelligenceClient(
+                settings.event_intelligence_url,
+                settings.event_intelligence_token,
+                timeout_seconds=settings.event_intelligence_timeout_seconds,
+            ) as client:
+                return await client.review_details(occurred_from=start, occurred_to=end)
+
+        details = asyncio.run(load_reviews())
+        reviews = aggregate_reviews(details, summary.timezone)
+        reviews = [review for review in reviews if start <= review.started_at < end]
+        reviews = [review for review in reviews if review.site_id == summary.site_id]
+        if summary.camera_id is not None:
+            reviews = [review for review in reviews if review.camera_id == summary.camera_id]
+        summary = complete_summary_generation(db, summary, reviews)
         logger.info(
-            "summary ready date=%s camera=%s events=%s model=%s",
-            summary.summary_date,
-            summary.camera,
-            summary.event_count,
-            summary.model,
+            "summary ready id=%s date=%s site=%s camera=%s reviews=%s generator=%s",
+            summary.id,
+            summary.local_date,
+            summary.site_id,
+            summary.camera_id,
+            summary.structured_content["review_count"],
+            summary.structured_content["generation"]["effective_generator"],
         )
-    except Exception:
+    except Exception as error:
+        if summary is not None:
+            fail_summary_generation(db, summary, error)
         logger.exception("failed summary job %s", job)
     finally:
         db.close()
@@ -60,7 +107,16 @@ def process_job(job: SummaryJob) -> None:
 
 def run_once(day: date | None = None, camera: str | None = None, mode: str | None = None) -> None:
     target = day or _now().date()
-    process_job(SummaryJob(summary_date=target.isoformat(), camera=camera, mode=mode))
+    settings = get_settings()
+    process_job(
+        SummaryJob(
+            summary_date=target.isoformat(),
+            camera=camera,
+            mode=mode,
+            timezone=settings.summary_timezone,
+            site_id=settings.summary_site_id,
+        )
+    )
 
 
 def maybe_enqueue_scheduled(queue: AIQueue) -> None:
@@ -72,9 +128,32 @@ def maybe_enqueue_scheduled(queue: AIQueue) -> None:
 
     day = now.date().isoformat()
     if queue.mark_summary_done(day):
-        queue.enqueue_summary(
-            SummaryJob(summary_date=day, camera=None, mode=settings.summary_mode)
-        )
+        db = SessionLocal()
+        try:
+            summary = queue_summary_generation(
+                db,
+                day=now.date(),
+                timezone=settings.summary_timezone,
+                site_id=settings.summary_site_id,
+                camera_id=None,
+                mode=settings.summary_mode,
+            )
+            if summary.status != "ready":
+                queue.enqueue_summary(
+                    SummaryJob(
+                        summary_id=str(summary.id),
+                        summary_date=day,
+                        camera=None,
+                        mode=settings.summary_mode,
+                        timezone=settings.summary_timezone,
+                        site_id=settings.summary_site_id,
+                    )
+                )
+        except Exception:
+            queue.clear_summary_done(day)
+            raise
+        finally:
+            db.close()
         logger.info("scheduled summary enqueued for %s", day)
 
 

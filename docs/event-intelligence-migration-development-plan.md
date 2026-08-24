@@ -885,6 +885,10 @@ Site/Camera Timezone
 - API 只读预计算结果；
 - 每份 Summary 可追溯到 Subject、Claim 和生成版本。
 
+### 12.4 实施状态（2026-08-24）
+
+SUMMARY-001～008 已完成并达到阶段 6 退出条件。新 `/api/v1/summaries` 路径只读取 Video Summary 自有的版本化预计算结果；独立 Summary Worker 只经 Event Intelligence `/api/v1/events` 公共契约消费 ReviewItem、Claim、Decision 和 Feedback，不读取旧 Event 表、不共享数据库/ORM、不读取媒体。Rule v1、LLM 预算与失败降级、Site Timezone/DST、幂等调度/重建、任务状态和固定新旧对照均已自动化验证。旧 `/summary/*` 链路保留为回退，未删除或切换客户端。验收证据见 [`summary-stage6-acceptance.md`](./summary-stage6-acceptance.md)。本状态不授权、也不表示阶段 7 Chat 迁移已开始。
+
 ## 13. 阶段 7：Chat 迁移
 
 ### 13.1 目标

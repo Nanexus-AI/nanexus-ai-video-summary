@@ -56,6 +56,14 @@ class Settings(BaseSettings):
     summary_minute: int = 50
     # UTC | local
     summary_timezone: str = "UTC"
+    summary_site_id: str = "default"
+    summary_rule_version: str = "rule-v1"
+    summary_prompt_version: str = "daily-security-v1"
+    summary_llm_max_input_chars: int = 16_000
+    summary_llm_max_tokens: int = 700
+    summary_llm_max_cost_micros: int = 25_000
+    summary_llm_input_cost_per_million_micros: int = 1_000_000
+    summary_llm_output_cost_per_million_micros: int = 10_000_000
 
     # Chat
     # extractive | llm

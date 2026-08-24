@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Any
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -73,6 +74,43 @@ class SummaryQueuedResponse(BaseModel):
     summary_date: date
     camera: str | None = None
     mode: str | None = None
+
+
+class SummaryV1Out(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    summary_type: str
+    local_date: date
+    timezone: str
+    site_id: str
+    camera_id: str | None = None
+    content: str
+    structured_content: dict[str, Any]
+    source_subject_ids: list[str]
+    generator: str
+    model_version: str
+    prompt_version: str
+    status: str
+    created_at: datetime
+    superseded_at: datetime | None = None
+
+
+class SummaryV1Response(BaseModel):
+    summary: SummaryV1Out | None = None
+
+
+class SummaryRebuildV1Request(BaseModel):
+    local_date: date
+    timezone: str = Field(min_length=1, max_length=128)
+    site_id: str = Field(default="default", min_length=1, max_length=255)
+    camera_id: str | None = Field(default=None, max_length=255)
+    mode: str = Field(default="rule", pattern="^(rule|llm)$")
+
+
+class SummaryJobV1Response(BaseModel):
+    id: UUID
+    status: str
 
 
 class SearchRequest(BaseModel):

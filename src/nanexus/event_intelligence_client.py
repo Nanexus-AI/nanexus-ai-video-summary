@@ -9,9 +9,13 @@ from typing import Any
 from uuid import UUID
 
 import httpx
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
-from nanexus.event_intelligence_contracts import Capability, EnrichmentResult, ProcessorJob
+from nanexus.event_intelligence_contracts import (
+    Capability,
+    EnrichmentResult,
+    ProcessorJob,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +59,79 @@ class SubmitReceipt(BaseModel):
     accepted: bool
     claim_ids: list[UUID] = []
     evidence_ids: list[UUID] = []
+
+
+class EventListItem(BaseModel):
+    id: UUID
+    lifecycle: str
+
+
+class EventListPage(BaseModel):
+    items: list[EventListItem]
+    total: int
+    limit: int
+    offset: int
+
+
+class ReviewObject(BaseModel):
+    object_key: str
+    label: str
+
+
+class ReviewClaim(BaseModel):
+    id: UUID
+    predicate: str
+    value: dict[str, Any]
+    confidence: float | None = None
+    abstained: bool = False
+    evidence_unavailable: bool = False
+    producer_type: str
+    producer_version: str
+    evidence_ids: list[UUID] = Field(default_factory=list)
+
+
+class ReviewEnrichment(BaseModel):
+    job_id: UUID
+    status: str
+    subject_revision: str
+    claims: list[ReviewClaim] = Field(default_factory=list)
+
+
+class ReviewDecision(BaseModel):
+    id: UUID
+    revision: int
+    outcome: str
+    confidence: float | None = None
+    degraded: bool = False
+
+
+class ReviewFeedback(BaseModel):
+    verdict: str
+
+
+class ReviewDetail(BaseModel):
+    id: UUID
+    review_item_id: UUID | None = None
+    source_instance_id: UUID
+    source_namespace: str
+    source_entity_id: str
+    source_revision: str
+    lifecycle: str
+    occurred_at: datetime
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+    labels: list[str] = Field(default_factory=list)
+    zones: list[str] = Field(default_factory=list)
+    camera_id: UUID | None = None
+    camera_name: str | None = None
+    site_id: str | None = None
+    camera_timezone: str | None = None
+    first_occurred_at: datetime
+    last_occurred_at: datetime
+    objects: list[ReviewObject] = Field(default_factory=list)
+    enrichments: list[ReviewEnrichment] = Field(default_factory=list)
+    decisions: list[ReviewDecision] = Field(default_factory=list)
+    feedback: ReviewFeedback | None = None
 
 
 class EventIntelligenceClient:
@@ -155,3 +232,31 @@ class EventIntelligenceClient:
             headers={"X-Trace-ID": str(result.job_id)},
         )
         return SubmitReceipt.model_validate(response.json())
+
+    async def review_details(
+        self, *, occurred_from: datetime, occurred_to: datetime
+    ) -> list[ReviewDetail]:
+        """Read deduplicated Review contexts through Event Intelligence API v1 only."""
+        offset = 0
+        details: list[ReviewDetail] = []
+        while True:
+            response = await self._request(
+                "GET",
+                "/api/v1/events",
+                params={
+                    "event_kind": "review",
+                    "occurred_from": occurred_from.isoformat(),
+                    "occurred_to": occurred_to.isoformat(),
+                    "limit": 100,
+                    "offset": offset,
+                },
+            )
+            page = EventListPage.model_validate(response.json())
+            for item in page.items:
+                detail = await self._request("GET", f"/api/v1/events/{item.id}")
+                parsed = ReviewDetail.model_validate(detail.json())
+                if parsed.review_item_id is not None:
+                    details.append(parsed)
+            offset += len(page.items)
+            if not page.items or offset >= page.total:
+                return details

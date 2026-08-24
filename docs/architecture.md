@@ -422,6 +422,24 @@ Frigate 检测
 | 隐私与合规 | 录像不出户 vs 云端增强功能的开关设计 |
 | GPU 可选 | 无 GPU 时的 CPU/轻量模型降级路径 |
 
+## 基座化阶段 6：Summary v1（2026-08-24）
+
+本节取代上文旧 `daily_summaries` 设计作为新的基座化 Summary 路径；旧设计和接口暂时保留用于回退。
+
+```text
+Event Intelligence public /api/v1/events
+  → ended-preferred Review DTO + canonical review_item_id
+  → Video Summary summary_worker（本地日 UTC bounds、去重、评分）
+  → Video Summary summaries（版本化、可追溯、可 supersede）
+  → GET /api/v1/summaries/{local_date}（只读预计算结果）
+```
+
+边界不变量：Video Summary 不导入 Event Intelligence 源码/ORM，不读取其数据库，不直连 Frigate，不读取 Evidence 媒体；Event Intelligence 不依赖 Video Summary。基座公开 Review 详情提供 canonical Subject ID、Site/Camera timezone，并继续公开 Claim/Decision/Feedback。Summary Worker 只使用这些结构化 DTO。
+
+`Summary` 由 Video Summary 独立拥有，包含本地日期、时区、Site/Camera、文本及结构化内容、所有来源 Subject、generator/model/prompt 版本、状态和 supersede 时间。`NULL camera_id` 使用 PostgreSQL `NULLS NOT DISTINCT` 唯一约束，保证站点级生成幂等。旧版本只在新结果 ready 后标记 superseded，不被覆盖或删除。
+
+Rule v1 以 Decision、Feedback、Label、Zone、Duration、本地时间和高质量 Claim 做透明评分，并按等价摄像头/Label/Zone/Caption 压缩重复重点事件。LLM 只接收 Rule 结构化 Context；字符、Token 和估算 Cost 任一超限或调用失败都返回 Rule 结果。API 不同步生成；重建只入队，状态可通过 `/api/v1/summaries/jobs/{id}` 查询。
+
 ---
 
 ## 10. 一句话结论
