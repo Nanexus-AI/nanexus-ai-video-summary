@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -8,6 +9,13 @@ import httpx
 from nanexus.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class LLMCompletion:
+    content: str
+    input_tokens: int | None
+    output_tokens: int | None
 
 
 def llm_configured() -> bool:
@@ -24,6 +32,15 @@ def chat_completion(
     OpenAI-compatible Chat Completions call.
     Returns None when LLM is not configured or the request fails.
     """
+    result = chat_completion_with_usage(
+        messages, temperature=temperature, max_tokens=max_tokens
+    )
+    return result.content if result else None
+
+
+def chat_completion_with_usage(
+    messages: list[dict[str, str]], *, temperature: float = 0.2, max_tokens: int = 800
+) -> LLMCompletion | None:
     settings = get_settings()
     if not settings.llm_api_key:
         return None
@@ -44,7 +61,12 @@ def chat_completion(
             resp = client.post(url, headers=headers, json=payload)
             resp.raise_for_status()
             data = resp.json()
-        return data["choices"][0]["message"]["content"].strip()
+        usage = data.get("usage", {})
+        return LLMCompletion(
+            data["choices"][0]["message"]["content"].strip(),
+            usage.get("prompt_tokens"),
+            usage.get("completion_tokens"),
+        )
     except Exception:
         logger.exception("LLM chat completion failed")
         return None

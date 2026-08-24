@@ -1,0 +1,1 @@
+"""Dedicated asynchronous chat worker."""

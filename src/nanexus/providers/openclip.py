@@ -9,8 +9,9 @@ import asyncio
 import hashlib
 import json
 import threading
+from collections.abc import Callable
 from io import BytesIO
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from nanexus.providers.base import (
     AnalysisResult,
@@ -61,7 +62,9 @@ class OpenCLIPProvider(Provider):
     @property
     def identity(self) -> ModelIdentity:
         device = self._device or self.requested_device
-        version = f"{self.pretrained}+{LABEL_SET_VERSION}+{device}+{self._runtime_version}"
+        version = (
+            f"{self.pretrained}+{LABEL_SET_VERSION}+{device}+{self._runtime_version}"
+        )
         return ModelIdentity(
             provider="openclip",
             model=self.model_name,
@@ -132,10 +135,32 @@ class OpenCLIPProvider(Provider):
     async def _bounded(self, operation: Callable[[], T], timeout_seconds: float) -> T:
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
+        loop = asyncio.get_running_loop()
+        result: asyncio.Future[T] = loop.create_future()
+
+        def run() -> None:
+            try:
+                value = operation()
+            except Exception as error:
+                if not loop.is_closed():
+                    loop.call_soon_threadsafe(_finish_error, error)
+            else:
+                if not loop.is_closed():
+                    loop.call_soon_threadsafe(_finish_value, value)
+
+        def _finish_value(value: T) -> None:
+            if not result.done():
+                result.set_result(value)
+
+        def _finish_error(error: BaseException) -> None:
+            if not result.done():
+                result.set_exception(error)
+
+        # Model runtimes cannot be safely killed in-process. A daemon thread lets
+        # the caller time out without asyncio.run waiting for a default executor.
+        threading.Thread(target=run, name="openclip-bounded", daemon=True).start()
         try:
-            return await asyncio.wait_for(
-                asyncio.to_thread(operation), timeout=timeout_seconds
-            )
+            return await asyncio.wait_for(result, timeout=timeout_seconds)
         except TimeoutError as error:
             raise ProviderError(
                 "model_timeout", "OpenCLIP operation timed out", retryable=True
@@ -193,7 +218,9 @@ class OpenCLIPProvider(Provider):
                     self._tokenizer(list(ZERO_SHOT_LABELS)).to(self._device)
                 )
                 text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-                probabilities = (100 * image_features @ text_features.T).softmax(dim=-1)[0]
+                probabilities = (100 * image_features @ text_features.T).softmax(
+                    dim=-1
+                )[0]
                 top = torch.topk(probabilities, k=3)
             tags = tuple(ZERO_SHOT_LABELS[index] for index in top.indices.tolist())
             confidence = float(top.values[0].item())

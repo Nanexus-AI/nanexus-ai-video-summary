@@ -49,6 +49,7 @@ uvicorn services.api.main:app --reload --host 0.0.0.0 --port 8000
 python -m services.mqtt_listener.main
 python -m services.ai_worker.main
 python -m services.summary_worker.main
+python -m services.chat_worker.main
 ```
 
 ### 4. 演示与验收
@@ -65,6 +66,9 @@ curl -s localhost:8000/chat \
 ```
 
 API 文档：http://localhost:8000/docs
+
+新 Chat v1 使用 `POST /api/v1/chat/jobs` 异步排队，并通过
+`GET /api/v1/chat/jobs/{job_id}?owner_id=...` 轮询；旧 `/chat` 在客户端迁移前保留作回退。
 
 ## 真实 Frigate
 

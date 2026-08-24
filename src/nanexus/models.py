@@ -6,9 +6,11 @@ from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
+    ForeignKey,
     Index,
     Integer,
     String,
@@ -45,13 +47,18 @@ class Event(Base):
     caption: Mapped[str | None] = mapped_column(Text)
     tags: Mapped[list[str] | None] = mapped_column(ARRAY(String))
     embedding = mapped_column(Vector(_DIM))
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="pending", index=True
+    )
     raw_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )
 
 
@@ -101,7 +108,9 @@ class EmbeddingRecord(Base):
 class DailySummary(Base):
     __tablename__ = "daily_summaries"
     __table_args__ = (
-        UniqueConstraint("summary_date", "camera", name="uq_daily_summaries_date_camera"),
+        UniqueConstraint(
+            "summary_date", "camera", name="uq_daily_summaries_date_camera"
+        ),
     )
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     summary_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
@@ -135,18 +144,26 @@ class Summary(Base):
             name="uq_summary_generation",
             postgresql_nulls_not_distinct=True,
         ),
-        Index("ix_summary_lookup", "summary_type", "local_date", "site_id", "camera_id"),
+        Index(
+            "ix_summary_lookup", "summary_type", "local_date", "site_id", "camera_id"
+        ),
         Index("ix_summary_status", "status", "created_at"),
     )
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    summary_type: Mapped[str] = mapped_column(String(32), nullable=False, default="daily")
+    summary_type: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="daily"
+    )
     local_date: Mapped[date] = mapped_column(Date, nullable=False)
     timezone: Mapped[str] = mapped_column(String(128), nullable=False)
     site_id: Mapped[str] = mapped_column(String(255), nullable=False)
     camera_id: Mapped[str | None] = mapped_column(String(255))
     content: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    structured_content: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
-    source_subject_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    structured_content: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict
+    )
+    source_subject_ids: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list
+    )
     generator: Mapped[str] = mapped_column(String(32), nullable=False)
     model_version: Mapped[str] = mapped_column(String(255), nullable=False)
     prompt_version: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -160,7 +177,9 @@ class Summary(Base):
 class Conversation(Base):
     __tablename__ = "conversations"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(String(128), nullable=False, default="local", index=True)
+    user_id: Mapped[str] = mapped_column(
+        String(128), nullable=False, default="local", index=True
+    )
     title: Mapped[str | None] = mapped_column(String(256))
     messages: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     related_event_ids: Mapped[list[int] | None] = mapped_column(ARRAY(Integer))
@@ -168,5 +187,76 @@ class Conversation(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
+class ChatMessage(Base):
+    """Normalized, owner-scoped v1 chat message; legacy JSON remains rollback-only."""
+
+    __tablename__ = "chat_messages"
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('user','assistant','system')", name="ck_chat_message_role"
+        ),
+        Index("ix_chat_message_conversation_created", "conversation_id", "created_at"),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    owner_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    method: Mapped[str | None] = mapped_column(String(128))
+    related_subject_ids: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list
+    )
+    prompt_version: Mapped[str | None] = mapped_column(String(128))
+    model_version: Mapped[str | None] = mapped_column(String(255))
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    cost_micros: Mapped[int | None] = mapped_column(Integer)
+    error_code: Mapped[str | None] = mapped_column(String(128))
+    degraded: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ChatJob(Base):
+    __tablename__ = "chat_jobs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('queued','running','ready','failed')", name="ck_chat_job_status"
+        ),
+        Index("ix_chat_job_owner_status", "owner_id", "status"),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    user_message_id: Mapped[UUID] = mapped_column(
+        ForeignKey("chat_messages.id", ondelete="CASCADE"), nullable=False
+    )
+    assistant_message_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("chat_messages.id", ondelete="SET NULL")
+    )
+    owner_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="queued")
+    camera: Mapped[str | None] = mapped_column(String(255))
+    site_id: Mapped[str] = mapped_column(String(255), nullable=False, default="default")
+    timezone: Mapped[str] = mapped_column(String(128), nullable=False, default="UTC")
+    error_code: Mapped[str | None] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )

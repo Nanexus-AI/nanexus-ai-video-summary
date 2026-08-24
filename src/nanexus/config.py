@@ -69,6 +69,13 @@ class Settings(BaseSettings):
     # extractive | llm
     chat_mode: str = "extractive"
     chat_lookback_days: int = 3
+    chat_queue_key: str = "nanexus:chat:jobs"
+    chat_context_subject_limit: int = 8
+    chat_max_context_chars: int = 12_000
+    chat_max_output_tokens: int = 500
+    chat_max_output_chars: int = 4_000
+    chat_llm_input_cost_per_million_micros: int = 1_000_000
+    chat_llm_output_cost_per_million_micros: int = 10_000_000
 
     # OpenAI-compatible LLM (optional)
     llm_api_key: str = ""

@@ -4,7 +4,7 @@ from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 class EventOut(BaseModel):
@@ -159,6 +159,56 @@ class ConversationOut(BaseModel):
     related_event_ids: list[int] | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class ChatV1Request(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+    owner_id: str = Field(min_length=1, max_length=128)
+    conversation_id: int | None = None
+    camera: str | None = Field(default=None, max_length=255)
+    site_id: str = Field(default="default", min_length=1, max_length=255)
+    timezone: str = Field(default="UTC", min_length=1, max_length=128)
+
+
+class ChatMessageV1Out(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    conversation_id: int
+    role: str
+    content: str
+    method: str | None = None
+    related_subject_ids: list[str]
+    prompt_version: str | None = None
+    model_version: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cost_micros: int | None = None
+    error_code: str | None = None
+    degraded: bool
+    created_at: datetime
+
+    @computed_field
+    @property
+    def citations(self) -> list[dict[str, str]]:
+        return [
+            {"subject_id": subject_id, "review_path": f"/api/v1/events/{subject_id}"}
+            for subject_id in self.related_subject_ids
+        ]
+
+
+class ChatJobV1Out(BaseModel):
+    id: UUID
+    conversation_id: int
+    status: str
+    error_code: str | None = None
+    answer: ChatMessageV1Out | None = None
+
+
+class ConversationV1Out(BaseModel):
+    id: int
+    owner_id: str
+    title: str | None = None
+    messages: list[ChatMessageV1Out]
 
 
 class SemanticSearchRequest(BaseModel):

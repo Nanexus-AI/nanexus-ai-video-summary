@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from typing import Any
+from uuid import UUID
 
 import redis
 
@@ -42,11 +43,27 @@ class SummaryJob:
         return cls(**data)
 
 
+@dataclass
+class ChatQueueJob:
+    job_id: str
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self))
+
+    @classmethod
+    def from_json(cls, payload: str | bytes) -> ChatQueueJob:
+        data = json.loads(payload)
+        UUID(data["job_id"])
+        return cls(**data)
+
+
 class AIQueue:
     def __init__(self, client: redis.Redis | None = None) -> None:
         settings = get_settings()
         self._settings = settings
-        self._client = client or redis.Redis.from_url(settings.redis_url, decode_responses=True)
+        self._client = client or redis.Redis.from_url(
+            settings.redis_url, decode_responses=True
+        )
 
     def enqueue(self, job: AIJob) -> None:
         self._client.lpush(self._settings.ai_queue_key, job.to_json())
@@ -67,6 +84,16 @@ class AIQueue:
             return None
         _, payload = item
         return SummaryJob.from_json(payload)
+
+    def enqueue_chat(self, job: ChatQueueJob) -> None:
+        self._client.lpush(self._settings.chat_queue_key, job.to_json())
+
+    def dequeue_chat(self, timeout: int = 5) -> ChatQueueJob | None:
+        item = self._client.brpop(self._settings.chat_queue_key, timeout=timeout)
+        if not item:
+            return None
+        _, payload = item
+        return ChatQueueJob.from_json(payload)
 
     def mark_processed(self, frigate_id: str) -> bool:
         """Return True if this frigate_id was newly marked (not a duplicate)."""

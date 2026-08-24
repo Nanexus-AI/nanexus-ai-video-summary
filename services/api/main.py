@@ -10,6 +10,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from nanexus.chat import run_chat
+from nanexus.chat_v1 import create_chat_job
 from nanexus.config import get_settings
 from nanexus.db import get_db, init_db
 from nanexus.event_intelligence_client import (
@@ -17,12 +18,23 @@ from nanexus.event_intelligence_client import (
     EventIntelligenceError,
 )
 from nanexus.media import local_snapshot_path, snapshots_dir
-from nanexus.models import Conversation, DailySummary, Event, Summary
-from nanexus.queue import AIJob, AIQueue, SummaryJob
+from nanexus.models import (
+    ChatJob,
+    ChatMessage,
+    Conversation,
+    DailySummary,
+    Event,
+    Summary,
+)
+from nanexus.queue import AIJob, AIQueue, ChatQueueJob, SummaryJob
 from nanexus.schemas import (
+    ChatJobV1Out,
+    ChatMessageV1Out,
     ChatRequest,
     ChatResponse,
+    ChatV1Request,
     ConversationOut,
+    ConversationV1Out,
     EventOut,
     HealthResponse,
     RegenerateSummaryRequest,
@@ -150,7 +162,9 @@ def regenerate_summary(
 
     queue = AIQueue()
     queue.clear_summary_done(day.isoformat(), body.camera)
-    queue.enqueue_summary(SummaryJob(summary_date=day.isoformat(), camera=body.camera, mode=mode))
+    queue.enqueue_summary(
+        SummaryJob(summary_date=day.isoformat(), camera=body.camera, mode=mode)
+    )
     return SummaryQueuedResponse(
         status="queued",
         summary_date=day,
@@ -176,8 +190,14 @@ def summary_v1(
         Summary.status == "ready",
         Summary.superseded_at.is_(None),
     ]
-    filters.append(Summary.camera_id.is_(None) if camera_id is None else Summary.camera_id == camera_id)
-    summary = db.scalar(select(Summary).where(*filters).order_by(Summary.created_at.desc()))
+    filters.append(
+        Summary.camera_id.is_(None)
+        if camera_id is None
+        else Summary.camera_id == camera_id
+    )
+    summary = db.scalar(
+        select(Summary).where(*filters).order_by(Summary.created_at.desc())
+    )
     return SummaryV1Response(
         summary=SummaryV1Out.model_validate(summary) if summary is not None else None
     )
@@ -218,7 +238,9 @@ def rebuild_summary_v1(
 
 
 @app.get("/api/v1/summaries/jobs/{summary_id}", response_model=SummaryJobV1Response)
-def summary_job_v1(summary_id: UUID, db: Session = Depends(get_db)) -> SummaryJobV1Response:
+def summary_job_v1(
+    summary_id: UUID, db: Session = Depends(get_db)
+) -> SummaryJobV1Response:
     summary = db.get(Summary, summary_id)
     if summary is None:
         raise HTTPException(status_code=404, detail="summary job not found")
@@ -240,7 +262,9 @@ def search(body: SearchRequest, db: Session = Depends(get_db)) -> SearchResponse
     for idx, event in enumerate(events):
         score = scores[idx] if idx < len(scores) else None
         items.append(SearchHit(event=EventOut.model_validate(event), score=score))
-    return SearchResponse(query=body.query, method=method, total=len(items), items=items)
+    return SearchResponse(
+        query=body.query, method=method, total=len(items), items=items
+    )
 
 
 @app.post("/api/v1/search", response_model=SemanticSearchResponse)
@@ -316,14 +340,19 @@ async def semantic_search_evidence(job_id: str, evidence_id: str) -> Response:
         ) as client:
             media = await client.evidence(UUID(job_id), UUID(evidence_id))
     except (ValueError, EventIntelligenceError) as error:
-        status_code = error.status_code if isinstance(error, EventIntelligenceError) else 400
+        status_code = (
+            error.status_code if isinstance(error, EventIntelligenceError) else 400
+        )
         raise HTTPException(
             status_code=status_code or 502, detail="evidence unavailable"
         ) from error
     return Response(
         content=media.content,
         media_type=media.content_type,
-        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+        headers={
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 
@@ -342,7 +371,9 @@ def chat(body: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
 
     related_events = []
     if related_ids:
-        related_events = list(db.scalars(select(Event).where(Event.id.in_(related_ids))).all())
+        related_events = list(
+            db.scalars(select(Event).where(Event.id.in_(related_ids))).all()
+        )
         # Preserve retrieval order
         by_id = {e.id: e for e in related_events}
         related_events = [by_id[i] for i in related_ids if i in by_id]
@@ -356,8 +387,83 @@ def chat(body: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
     )
 
 
+@app.post("/api/v1/chat/jobs", response_model=ChatJobV1Out, status_code=202)
+def create_chat_job_v1(
+    body: ChatV1Request, db: Session = Depends(get_db)
+) -> ChatJobV1Out:
+    """Persist and queue only; retrieval and LLM execution are worker-only."""
+    try:
+        job = create_chat_job(
+            db,
+            owner_id=body.owner_id,
+            question=body.message,
+            conversation_id=body.conversation_id,
+            camera=body.camera,
+            site_id=body.site_id,
+            timezone=body.timezone,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=404 if body.conversation_id else 422, detail=str(error)
+        ) from error
+    AIQueue().enqueue_chat(ChatQueueJob(job_id=str(job.id)))
+    return ChatJobV1Out(
+        id=job.id, conversation_id=job.conversation_id, status=job.status
+    )
+
+
+@app.get("/api/v1/chat/jobs/{job_id}", response_model=ChatJobV1Out)
+def get_chat_job_v1(
+    job_id: UUID, owner_id: str, db: Session = Depends(get_db)
+) -> ChatJobV1Out:
+    job = db.get(ChatJob, job_id)
+    if job is None or job.owner_id != owner_id:
+        raise HTTPException(status_code=404, detail="chat job not found")
+    answer = (
+        db.get(ChatMessage, job.assistant_message_id)
+        if job.assistant_message_id
+        else None
+    )
+    return ChatJobV1Out(
+        id=job.id,
+        conversation_id=job.conversation_id,
+        status=job.status,
+        error_code=job.error_code,
+        answer=ChatMessageV1Out.model_validate(answer) if answer else None,
+    )
+
+
+@app.get(
+    "/api/v1/chat/conversations/{conversation_id}", response_model=ConversationV1Out
+)
+def get_conversation_v1(
+    conversation_id: int, owner_id: str, db: Session = Depends(get_db)
+) -> ConversationV1Out:
+    conversation = db.get(Conversation, conversation_id)
+    if conversation is None or conversation.user_id != owner_id:
+        raise HTTPException(status_code=404, detail="conversation not found")
+    messages = list(
+        db.scalars(
+            select(ChatMessage)
+            .where(
+                ChatMessage.conversation_id == conversation_id,
+                ChatMessage.owner_id == owner_id,
+            )
+            .order_by(ChatMessage.created_at, ChatMessage.id)
+        ).all()
+    )
+    return ConversationV1Out(
+        id=conversation.id,
+        owner_id=owner_id,
+        title=conversation.title,
+        messages=[ChatMessageV1Out.model_validate(item) for item in messages],
+    )
+
+
 @app.get("/conversations/{conversation_id}", response_model=ConversationOut)
-def get_conversation(conversation_id: int, db: Session = Depends(get_db)) -> Conversation:
+def get_conversation(
+    conversation_id: int, db: Session = Depends(get_db)
+) -> Conversation:
     conv = db.get(Conversation, conversation_id)
     if not conv:
         raise HTTPException(status_code=404, detail="conversation not found")

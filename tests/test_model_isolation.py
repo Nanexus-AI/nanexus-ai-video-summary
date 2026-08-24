@@ -28,4 +28,19 @@ def test_summary_v1_worker_uses_event_intelligence_not_legacy_or_frigate() -> No
 
     compose_source = open("compose.search.yaml", encoding="utf-8").read()
     assert "summary-worker:" in compose_source
-    assert 'services.summary_worker.main' in compose_source
+    assert "services.summary_worker.main" in compose_source
+
+
+def test_chat_v1_uses_search_summary_contracts_and_is_worker_isolated() -> None:
+    chat_source = open("src/nanexus/chat_v1.py", encoding="utf-8").read()
+    worker_source = open("services/chat_worker/main.py", encoding="utf-8").read()
+    api_source = open("services/api/main.py", encoding="utf-8").read()
+    compose_source = open("compose.search.yaml", encoding="utf-8").read()
+    assert "semantic_search" in chat_source and "Summary" in chat_source
+    assert "models import Event" not in chat_source
+    assert "search_events" not in chat_source
+    assert "frigate" not in chat_source.lower()
+    assert "process_chat_job" in worker_source
+    assert "process_chat_job" not in api_source
+    assert "chat-worker:" in compose_source
+    assert "services.chat_worker.main" in compose_source

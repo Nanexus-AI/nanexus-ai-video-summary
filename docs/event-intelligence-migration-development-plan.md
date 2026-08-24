@@ -964,6 +964,10 @@ LLM 不可用时返回结构化 Extractive Answer，而不是无解释地失败�
 - Prompt/Model/检索方法可审计；
 - 固定问题集有回归测试。
 
+### 13.4 实施状态（2026-08-24）
+
+CHAT-001～007 已实现。新增正规化、所有权隔离的 Conversation/Message/Job 存储和独立 Chat Worker；新 `/api/v1/chat/*` 仅使用 Video Summary 自有的版本化 Search/Summary 数据，并以 Event Intelligence 稳定 Subject UUID 形成引用。时间语义、上下文预算、Prompt Injection 防护、LLM 审计元数据与 Extractive 降级均有固定回归测试。旧 `/chat` 保留，未切换客户端、未删除旧链路。本状态不授权开始阶段 8；验收证据见 [`chat-stage7-acceptance.md`](./chat-stage7-acceptance.md)。
+
 ## 14. 阶段 8：Web 与 Android 迁移
 
 ### 14.1 目标

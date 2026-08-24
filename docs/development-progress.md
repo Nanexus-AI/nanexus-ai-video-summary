@@ -231,3 +231,42 @@ Video Summary full backend: 62 passed. Event Intelligence backend: 153 passed/3 
 ### Exit and stop
 
 All stage 6 exit conditions are met for the new v1 path. Existing stage-5 representative HNSW EXPLAIN/human relevance work remains a deployment/quality gate and was not reclassified. Stop after stage 6; do not begin CHAT-001～007 without separate authorization.
+## 2026-08-24：CHAT-001～007 Chat 迁移
+
+### 目标
+
+在不读取旧 Event、不共享 Event Intelligence DB/ORM、不直连 Frigate/Evidence 的前提下，提供可审计、可降级的异步 Chat v1。
+
+### 已完成
+
+新增正规化 Message/Job migration、Site Timezone 时间解析、Search→Summary 检索流水线、Subject UUID 引用、独立 Chat Worker、安全边界和 Extractive 降级。旧链路未删除或切换。ADR 与阶段验收见 `architecture-reviews/2026-08-24-chat-worker-adr.md`、`chat-stage7-acceptance.md`。
+
+前置门禁还暴露并修复了 OpenCLIP timeout 在 `asyncio.run` 关闭时等待默认 executor 的阻塞缺陷，以及 fresh Alembic 链缺少旧 `conversations` 父表的问题。
+
+### 数据和契约变更
+
+Video Summary Alembic head 为 `7c1c001009`。新增 `/api/v1/chat/jobs`、job poll 和 owner-scoped conversation read API。Event Intelligence 无代码或数据库变更；继续只消费其公开 v1 契约。
+
+### 验证结果
+
+固定问题集、注入/降级、引用、Schema、队列、隔离和 Search/Summary 回归测试通过；Video Summary 76 passed，Event Intelligence 153 passed/3 skipped。Alembic 离线全链 SQL、Compose 配置、变更文件 Ruff 和新模块 Mypy 校验通过；全模型 Mypy 仍有既有 SQLAlchemy 动态 Base 类型问题，未误报为通过。
+
+### 故障测试
+
+覆盖无效时区、语义向量不可用、LLM 不可用、Prompt Injection、空检索和 worker failure 状态。
+
+### 兼容性影响
+
+旧 `/chat` 和 JSON 消息保留作回退；阶段 8 前不切换 Web/Android。
+
+### 已知限制
+
+`owner_id` 只实施存储与查询隔离，不等同于生产认证；真实 Compose/外部模型成本需部署阶段验证。
+
+### 回退方式
+
+停止 Chat Worker，继续使用旧 Chat；数据库 downgrade 仅用于明确维护操作，本阶段未执行数据删除。
+
+### 下一步
+
+不自动开始阶段 8。其前置是 Chat Compose 集成门禁持续通过，并完成客户端认证/所有权设计。
