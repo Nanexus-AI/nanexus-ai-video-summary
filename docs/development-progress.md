@@ -185,3 +185,29 @@ Set `MODEL_PROVIDER=stub` or omit `compose.model.yaml`. The legacy chain remains
 ### Next step
 
 Stop at stage 4. Stage 5 SEARCH-001～007 requires separate authorization and its storage decision must be reconfirmed.
+
+## 2026-08-24: SEARCH-001～007 Embedding and semantic Search migration
+
+### Goal
+
+Build versioned, rebuildable semantic retrieval without reading the legacy Event table or crossing the Event Intelligence public boundary.
+
+### Completed
+
+Added the application-owned EmbeddingRecord/Alembic migration, HNSW and metadata indexes, asynchronous retry/DLQ indexing, worker-only query embedding HTTP service, Search API v1 filters/pagination/threshold/degradation, reindex dry-run/progress/activation, version coexistence and a fixed bilingual evaluation set. Extended the Event Intelligence public submit/subject receipts with stable Claim/Evidence/Job filter metadata; no ORM or database was shared.
+
+### Verification results
+
+Event Intelligence Processor API: 3 passed and Ruff passed. Video Summary: 44 backend tests passed, including 8 stage-5 tests; compileall passed. The Alembic migration has a single declared head (`5a1c001007`) and Compose orders migration before Search services.
+
+### Compatibility and rollback
+
+The old `/search`, Event model/vector column and legacy chain remain intact. New `/api/v1/search` never falls back to them. Superseded model rows are retained. Disable the Search overlay to roll back without deleting data.
+
+### Remaining deployment gates
+
+Real PostgreSQL/pgvector upgrade passed at `5a1c001007` and created all six expected indexes. Before rollout, run representative HNSW/filter `EXPLAIN`, then fill human relevance and record Top-K for a representative authorized Evidence corpus. Docker daemon-backed validation was not claimed in the isolated test run.
+
+### Next step
+
+Stop after stage 5. Do not start SUMMARY-001. Stage 6 requires the real-database and relevance gates above plus separate authorization.

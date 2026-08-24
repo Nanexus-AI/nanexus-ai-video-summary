@@ -1,0 +1,16 @@
+{
+  "dataset_version": "search-eval-v1",
+  "model": "ViT-B-32",
+  "queries": [
+    {"language":"zh","query":"红衣服的人","expected_labels":["person wearing red clothes"],"top_k":5,"human_relevance":[]},
+    {"language":"zh","query":"黑色车辆","expected_labels":["black SUV"],"top_k":5,"human_relevance":[]},
+    {"language":"zh","query":"前院包裹","expected_labels":["package on the ground"],"top_k":5,"human_relevance":[]},
+    {"language":"zh","query":"昨天车道上的人","expected_labels":["person","vehicle in the driveway"],"top_k":5,"human_relevance":[]},
+    {"language":"zh","query":"不存在的目标","expected_labels":[],"top_k":5,"human_relevance":[]},
+    {"language":"en","query":"person wearing red clothes","expected_labels":["person wearing red clothes"],"top_k":5,"human_relevance":[]},
+    {"language":"en","query":"black vehicle","expected_labels":["black SUV"],"top_k":5,"human_relevance":[]},
+    {"language":"en","query":"package in the front yard","expected_labels":["package on the ground"],"top_k":5,"human_relevance":[]},
+    {"language":"en","query":"person in the driveway yesterday","expected_labels":["person","vehicle in the driveway"],"top_k":5,"human_relevance":[]},
+    {"language":"en","query":"target that does not exist","expected_labels":[],"top_k":5,"human_relevance":[]}
+  ]
+}

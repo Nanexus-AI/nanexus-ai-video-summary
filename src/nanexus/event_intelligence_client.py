@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -23,6 +24,8 @@ class SubjectMetadata(BaseModel):
     labels: list[str]
     zones: list[str]
     camera: str | None
+    site: str | None = None
+    occurred_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -46,6 +49,14 @@ class IncompatibleContractError(EventIntelligenceError):
     pass
 
 
+class SubmitReceipt(BaseModel):
+    job_id: UUID
+    status: str
+    accepted: bool
+    claim_ids: list[UUID] = []
+    evidence_ids: list[UUID] = []
+
+
 class EventIntelligenceClient:
     def __init__(
         self,
@@ -62,7 +73,7 @@ class EventIntelligenceClient:
             headers={"Authorization": f"Bearer {token}"},
         )
 
-    async def __aenter__(self) -> "EventIntelligenceClient":
+    async def __aenter__(self) -> EventIntelligenceClient:
         return self
 
     async def __aexit__(self, *_args: object) -> None:
@@ -133,17 +144,14 @@ class EventIntelligenceClient:
         )
         return EvidenceContent(
             content=response.content,
-            content_type=response.headers.get("content-type", "")
-            .split(";", 1)[0]
-            .strip()
-            .lower(),
+            content_type=response.headers.get("content-type", "").split(";", 1)[0].strip().lower(),
         )
 
-    async def submit(self, result: EnrichmentResult) -> bool:
+    async def submit(self, result: EnrichmentResult) -> SubmitReceipt:
         response = await self._request(
             "POST",
             f"/api/v1/processor/jobs/{result.job_id}/result",
             json=result.model_dump(mode="json"),
             headers={"X-Trace-ID": str(result.job_id)},
         )
-        return bool(response.json()["accepted"])
+        return SubmitReceipt.model_validate(response.json())

@@ -19,6 +19,7 @@ from nanexus.event_intelligence_contracts.enrichment_result import (
     ResultStatus,
     TagsClaim,
 )
+from nanexus.indexing import EmbeddingJob, EmbeddingQueue, content_hash
 from nanexus.providers import Provider, ProviderAbstained, ProviderError, create_provider
 from nanexus.providers.media import validate_image_evidence
 
@@ -29,11 +30,7 @@ def _result_error(
     *, job, provider: Provider, started_at: datetime, error: ProviderError
 ) -> EnrichmentResult:
     completed_at = datetime.now(UTC)
-    status = (
-        ResultStatus.ABSTAINED
-        if isinstance(error, ProviderAbstained)
-        else ResultStatus.FAILED
-    )
+    status = ResultStatus.ABSTAINED if isinstance(error, ProviderAbstained) else ResultStatus.FAILED
     identity = provider.identity
     return EnrichmentResult(
         job_id=job.job_id,
@@ -52,30 +49,24 @@ def _result_error(
             external_network_used=False,
         ),
         claims=(),
-        errors=(
-            ResultError(code=error.code, reason=error.reason, retryable=error.retryable),
-        ),
+        errors=(ResultError(code=error.code, reason=error.reason, retryable=error.retryable),),
         completed_at=completed_at,
     )
 
 
-async def process_once(
-    client: EventIntelligenceClient, provider: Provider | None = None
-) -> bool:
+async def process_once(client: EventIntelligenceClient, provider: Provider | None = None) -> bool:
     settings = get_settings()
     provider = provider or create_provider(settings)
     await client.capability()
     job = await client.next_job()
     if job is None:
         return False
-    await client.subject(job.job_id)
+    subject = await client.subject(job.job_id)
     evidence_ref = job.evidence_refs[0]
     started_at = datetime.now(UTC)
     try:
         evidence = await client.evidence(job.job_id, evidence_ref.evidence_id)
-        image = validate_image_evidence(
-            evidence, maximum_bytes=settings.model_max_image_bytes
-        )
+        image = validate_image_evidence(evidence, maximum_bytes=settings.model_max_image_bytes)
         analysis = await provider.analyze_image(
             image, timeout_seconds=settings.model_timeout_seconds
         )
@@ -88,9 +79,7 @@ async def process_once(
                 error.code,
             )
             raise
-        result = _result_error(
-            job=job, provider=provider, started_at=started_at, error=error
-        )
+        result = _result_error(job=job, provider=provider, started_at=started_at, error=error)
         await client.submit(result)
         logger.info(
             "model attempt audited job_id=%s provider=%s code=%s status=%s",
@@ -146,7 +135,31 @@ async def process_once(
         errors=(),
         completed_at=completed_at,
     )
-    await client.submit(result)
+    receipt = await client.submit(result)
+    caption_index = next(
+        (index for index, claim in enumerate(claims) if claim.claim_type == "caption"), None
+    )
+    if caption_index is not None and len(receipt.claim_ids) > caption_index:
+        EmbeddingQueue().enqueue(
+            EmbeddingJob(
+                subject_type=job.subject_type.value,
+                subject_id=str(job.subject_id),
+                subject_revision=job.subject_revision,
+                source_claim_id=str(receipt.claim_ids[caption_index]),
+                source_job_id=str(job.job_id),
+                evidence_ids=[str(value) for value in receipt.evidence_ids],
+                modality="image",
+                vector=list(analysis.image_embedding),
+                provider=identity.provider,
+                model=identity.model,
+                model_version=identity.model_version,
+                content_hash=content_hash(claims[caption_index].text),
+                camera=subject.camera,
+                site=subject.site,
+                occurred_at=subject.occurred_at.isoformat() if subject.occurred_at else None,
+                labels=subject.labels,
+            )
+        )
     logger.info(
         "processor job completed job_id=%s trace_id=%s provider=%s model=%s "
         "pretrained=%s device=%s label_set=%s latency_ms=%d result_hash=%s "
@@ -193,9 +206,7 @@ async def run() -> None:
                     settings.event_intelligence_poll_seconds if error.retryable else 5.0
                 )
             except ProviderError as error:
-                logger.warning(
-                    "provider failed code=%s retryable=%s", error.code, error.retryable
-                )
+                logger.warning("provider failed code=%s retryable=%s", error.code, error.retryable)
                 await asyncio.sleep(settings.event_intelligence_poll_seconds)
 
 

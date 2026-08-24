@@ -121,3 +121,41 @@ class ConversationOut(BaseModel):
     related_event_ids: list[int] | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class SemanticSearchRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=500)
+    limit: int = Field(default=20, ge=1, le=100)
+    offset: int = Field(default=0, ge=0)
+    camera: str | None = None
+    site: str | None = None
+    label: str | None = None
+    since: datetime | None = None
+    until: datetime | None = None
+    subject_type: str | None = None
+    minimum_similarity: float = Field(default=0.0, ge=-1.0, le=1.0)
+
+
+class SemanticSearchHit(BaseModel):
+    subject_type: str
+    subject_id: str
+    subject_revision: str
+    source_claim_id: str
+    score: float
+    camera: str | None = None
+    site: str | None = None
+    labels: list[str]
+    occurred_at: datetime | None = None
+    evidence: list[str]
+
+
+class SemanticSearchResponse(BaseModel):
+    query: str
+    method: str
+    model: str | None = None
+    model_version: str | None = None
+    degraded: bool = False
+    degradation_reason: str | None = None
+    total: int
+    next_offset: int | None = None
+    items: list[SemanticSearchHit]

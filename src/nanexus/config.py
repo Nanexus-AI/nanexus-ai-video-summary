@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     frigate_base_url: str = "http://localhost:5000"
     frigate_token: str = ""
     embedding_dim: int = 512
+    embedding_queue_key: str = "nanexus:search:embedding-jobs"
+    embedding_dlq_key: str = "nanexus:search:embedding-dlq"
+    embedding_max_attempts: int = 3
+    model_service_url: str = "http://model-service:8010"
+    search_model: str = ""
+    search_model_version: str = ""
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     log_level: str = "INFO"

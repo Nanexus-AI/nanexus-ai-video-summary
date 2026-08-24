@@ -4,13 +4,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, RedirectResponse
-from sqlalchemy import func, select, text
-from sqlalchemy.orm import Session
-
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from nanexus.chat import run_chat
 from nanexus.config import get_settings
 from nanexus.db import get_db, init_db
+from nanexus.event_intelligence_client import EventIntelligenceClient, EventIntelligenceError
 from nanexus.media import local_snapshot_path, snapshots_dir
 from nanexus.models import Conversation, DailySummary, Event
 from nanexus.queue import AIJob, AIQueue, SummaryJob
@@ -24,13 +22,19 @@ from nanexus.schemas import (
     SearchHit,
     SearchRequest,
     SearchResponse,
+    SemanticSearchHit,
+    SemanticSearchRequest,
+    SemanticSearchResponse,
     SummaryOut,
     SummaryQueuedResponse,
     SummaryResponse,
     TimelineResponse,
 )
 from nanexus.search import search_events
+from nanexus.semantic_search import QueryEmbeddingUnavailable, embed_query, semantic_search
 from nanexus.summary import build_daily_summary, fallback_summary_text
+from sqlalchemy import func, select, text
+from sqlalchemy.orm import Session
 
 settings = get_settings()
 app = FastAPI(title="Nanexus AI Video Summary", version="0.3.0")
@@ -128,9 +132,7 @@ def regenerate_summary(
 
     queue = AIQueue()
     queue.clear_summary_done(day.isoformat(), body.camera)
-    queue.enqueue_summary(
-        SummaryJob(summary_date=day.isoformat(), camera=body.camera, mode=mode)
-    )
+    queue.enqueue_summary(SummaryJob(summary_date=day.isoformat(), camera=body.camera, mode=mode))
     return SummaryQueuedResponse(
         status="queued",
         summary_date=day,
@@ -157,6 +159,90 @@ def search(body: SearchRequest, db: Session = Depends(get_db)) -> SearchResponse
     return SearchResponse(query=body.query, method=method, total=len(items), items=items)
 
 
+@app.post("/api/v1/search", response_model=SemanticSearchResponse)
+def semantic_search_v1(
+    body: SemanticSearchRequest, db: Session = Depends(get_db)
+) -> SemanticSearchResponse:
+    try:
+        query_embedding = embed_query(body.query)
+    except QueryEmbeddingUnavailable as error:
+        return SemanticSearchResponse(
+            query=body.query,
+            method="semantic-unavailable",
+            degraded=True,
+            degradation_reason=str(error),
+            total=0,
+            items=[],
+        )
+    rows = semantic_search(
+        db,
+        query_embedding,
+        limit=body.limit,
+        offset=body.offset,
+        camera=body.camera,
+        site=body.site,
+        label=body.label,
+        since=body.since,
+        until=body.until,
+        subject_type=body.subject_type,
+        minimum_similarity=body.minimum_similarity,
+    )
+    has_more = len(rows) > body.limit
+    rows = rows[: body.limit]
+    items = [
+        SemanticSearchHit(
+            subject_type=record.subject_type,
+            subject_id=str(record.subject_id),
+            subject_revision=record.subject_revision,
+            source_claim_id=str(record.source_claim_id),
+            score=score,
+            camera=record.camera,
+            site=record.site,
+            labels=record.labels,
+            occurred_at=record.occurred_at,
+            evidence=[
+                f"{settings.public_base_url}/api/v1/search/evidence/"
+                f"{record.source_job_id}/evidence/{evidence_id}"
+                for evidence_id in record.evidence_ids
+            ],
+        )
+        for record, score in rows
+    ]
+    return SemanticSearchResponse(
+        query=body.query,
+        method="cosine-pgvector",
+        model=query_embedding.model,
+        model_version=query_embedding.model_version,
+        total=len(items),
+        next_offset=body.offset + body.limit if has_more else None,
+        items=items,
+    )
+
+
+@app.get("/api/v1/search/evidence/{job_id}/{evidence_id}")
+async def semantic_search_evidence(job_id: str, evidence_id: str) -> Response:
+    """Open Evidence through the authoritative, job-scoped public boundary."""
+    from uuid import UUID
+
+    try:
+        async with EventIntelligenceClient(
+            settings.event_intelligence_url,
+            settings.event_intelligence_token,
+            timeout_seconds=settings.event_intelligence_timeout_seconds,
+        ) as client:
+            media = await client.evidence(UUID(job_id), UUID(evidence_id))
+    except (ValueError, EventIntelligenceError) as error:
+        status_code = error.status_code if isinstance(error, EventIntelligenceError) else 400
+        raise HTTPException(
+            status_code=status_code or 502, detail="evidence unavailable"
+        ) from error
+    return Response(
+        content=media.content,
+        media_type=media.content_type,
+        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+    )
+
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(body: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
     try:
@@ -172,9 +258,7 @@ def chat(body: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
 
     related_events = []
     if related_ids:
-        related_events = list(
-            db.scalars(select(Event).where(Event.id.in_(related_ids))).all()
-        )
+        related_events = list(db.scalars(select(Event).where(Event.id.in_(related_ids))).all())
         # Preserve retrieval order
         by_id = {e.id: e for e in related_events}
         related_events = [by_id[i] for i in related_ids if i in by_id]

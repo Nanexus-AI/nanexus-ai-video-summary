@@ -461,3 +461,7 @@ The external Stub Worker performs deterministic local processing and submits aud
 OpenCLIP is now a Video Summary Provider loaded only by `services.event_intelligence_worker`. The normal API process defaults to keyword fallback and does not import Torch/OpenCLIP. A frozen legacy API inference switch exists only for rollback until the Search migration stage.
 
 The Worker consumes opaque Evidence bytes solely through the Event Intelligence Processor API, validates type/size/decode, and writes only versioned Results. Event Intelligence remains the sole owner of Job, Evidence, Claim and ModelInvocation persistence. `MODEL_PROVIDER=stub|openclip` selects the implementation; Stub is the default and no cloud provider is registered.
+
+## Stage 5 semantic Search boundary (2026-08-24)
+
+Semantic vectors are application data owned by Video Summary. Event Intelligence owns canonical Subject, Claim and Evidence and exposes stable IDs only through Processor API v1. The enrichment worker submits Caption/Tags first, then queues a local embedding record using the public receipt. A separate embedding worker persists to Video Summary PostgreSQL/pgvector. Search API requests text vectors from a separate model service and never imports the heavy model runtime. Search results use Subject/Claim IDs and job-scoped Event Intelligence Evidence URLs; the frozen legacy Event table remains only for rollback paths and is not queried by `/api/v1/search`.
