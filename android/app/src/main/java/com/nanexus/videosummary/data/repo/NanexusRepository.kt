@@ -18,6 +18,12 @@ interface NanexusDataSource {
     suspend fun search(query: String, camera: String? = null, limit: Int = 20): SearchResponse
     suspend fun event(eventId: Int): EventOut
     fun snapshotUrl(baseUrl: String, eventId: Int): String
+    suspend fun capabilitiesV1(): CapabilitiesV1
+    suspend fun summaryV1(localDate: String, timezone: String = "UTC", camera: String? = null): SummaryV1Response
+    suspend fun searchV1(query: String, camera: String? = null, limit: Int = 20, offset: Int = 0): SemanticSearchResponseV1
+    suspend fun createChatJobV1(message: String, ownerId: String, conversationId: Int? = null, camera: String? = null, timezone: String = "UTC"): ChatJobV1
+    suspend fun chatJobV1(jobId: String, ownerId: String): ChatJobV1
+    fun subjectUrl(baseUrl: String, subjectId: String): String
 }
 
 class NanexusRepository(private val settings: AppSettings) : NanexusDataSource {
@@ -41,4 +47,10 @@ class NanexusRepository(private val settings: AppSettings) : NanexusDataSource {
     override suspend fun search(query: String, camera: String?, limit: Int): SearchResponse = client().search(SearchRequest(query = query, limit = limit, camera = camera))
     override suspend fun event(eventId: Int): EventOut = client().event(eventId)
     override fun snapshotUrl(baseUrl: String, eventId: Int): String = "${baseUrl.trimEnd('/')}/events/$eventId/snapshot"
+    override suspend fun capabilitiesV1() = client().capabilitiesV1()
+    override suspend fun summaryV1(localDate: String, timezone: String, camera: String?) = client().summaryV1(localDate, timezone, camera = camera)
+    override suspend fun searchV1(query: String, camera: String?, limit: Int, offset: Int) = client().searchV1(SemanticSearchRequestV1(query, limit, offset, camera))
+    override suspend fun createChatJobV1(message: String, ownerId: String, conversationId: Int?, camera: String?, timezone: String) = client().createChatJobV1(ChatRequestV1(message, ownerId, conversationId, camera, timezone = timezone))
+    override suspend fun chatJobV1(jobId: String, ownerId: String) = client().chatJobV1(jobId, ownerId)
+    override fun subjectUrl(baseUrl: String, subjectId: String) = "${baseUrl.trimEnd('/')}/api/v1/subjects/$subjectId"
 }

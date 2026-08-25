@@ -47,6 +47,8 @@ import com.nanexus.videosummary.viewmodel.SearchViewModel
 import com.nanexus.videosummary.viewmodel.SettingsViewModel
 import com.nanexus.videosummary.viewmodel.SummaryViewModel
 import com.nanexus.videosummary.viewmodel.TimelineViewModel
+import com.nanexus.videosummary.viewmodel.ChatViewModel
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.foundation.shape.RoundedCornerShape
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,6 +57,7 @@ fun SummaryScreen(
     vm: SummaryViewModel,
     onOpenSettings: () -> Unit,
 ) {
+    val uriHandler = LocalUriHandler.current
     val state by vm.state.collectAsStateWithLifecycle()
     val camera by vm.cameraFilter.collectAsStateWithLifecycle()
 
@@ -80,8 +83,7 @@ fun SummaryScreen(
             state.error != null -> ErrorBox(state.error!!, onRetry = vm::refresh)
             state.data != null -> {
                 val resp = state.data!!
-                val content = resp.summary?.content ?: resp.fallback.orEmpty()
-                val eventCount = resp.summary?.eventCount
+                val content = resp.summary?.content.orEmpty()
                 Column(
                     modifier = Modifier
                         .padding(padding)
@@ -94,9 +96,12 @@ fun SummaryScreen(
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    resp.summary?.sourceSubjectIds?.forEach { subjectId ->
+                        TextButton(onClick = { uriHandler.openUri(vm.subjectUrl(subjectId)) }) { Text("Open related event ${subjectId.take(8)}") }
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Summary · ${resp.date}",
+                        text = "Summary · ${resp.summary?.localDate ?: "today"}",
                         style = MaterialTheme.typography.headlineSmall,
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -107,8 +112,7 @@ fun SummaryScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = buildString {
-                            if (eventCount != null) append("$eventCount events · ")
-                            append(if (resp.summary != null) resp.summary.model else "live fallback")
+                            append(resp.summary?.generator ?: "No precomputed summary")
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -170,7 +174,7 @@ fun TimelineScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SearchScreen(vm: SearchViewModel, onOpenEvent: (Int) -> Unit) {
+fun SearchScreen(vm: SearchViewModel, onOpenSubject: (String) -> Unit) {
     val query by vm.query.collectAsStateWithLifecycle()
     val state by vm.state.collectAsStateWithLifecycle()
 
@@ -201,20 +205,42 @@ fun SearchScreen(vm: SearchViewModel, onOpenEvent: (Int) -> Unit) {
                 state.loading -> LoadingBox()
                 state.error != null -> ErrorBox(state.error!!, onRetry = vm::search)
                 state.data != null -> {
-                    val hits = state.data!!
+                    val response = state.data!!
+                    val hits = response.items
                     if (hits.isEmpty()) {
                         ErrorBox("No matches.")
                     } else {
                         LazyColumn(contentPadding = PaddingValues(bottom = 88.dp)) {
-                            items(hits, key = { it.event.id }) { hit ->
-                                EventListItem(
-                                    event = hit.event,
-                                    snapshotUrl = vm.snapshotUrl(hit.event.id),
-                                    score = hit.score,
-                                    onClick = { onOpenEvent(hit.event.id) },
-                                )
+                            items(hits, key = { it.subjectId }) { hit ->
+                                TextButton(onClick = { onOpenSubject(hit.subjectId) }) {
+                                    Text("${hit.camera ?: "Event"} · ${hit.labels.joinToString()} · ${"%.2f".format(hit.score)}")
+                                }
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable fun ChatScreen(vm: ChatViewModel) {
+    val question by vm.question.collectAsStateWithLifecycle()
+    val state by vm.state.collectAsStateWithLifecycle()
+    val uriHandler = LocalUriHandler.current
+    Scaffold(topBar = { TopAppBar(title = { Text("Chat") }) }) { padding ->
+        Column(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedTextField(question, vm::onQuestionChange, Modifier.fillMaxWidth(), label = { Text("Ask about events") })
+            TextButton(onClick = vm::submit) { Text(if (state.loading) "Processing…" else "Ask") }
+            state.error?.let { ErrorBox(it, onRetry = vm::submit) }
+            state.data?.let { job ->
+                Text("Job: ${job.status}")
+                job.answer?.let { answer ->
+                    if (answer.degraded) Text("Degraded answer", color = MaterialTheme.colorScheme.error)
+                    Text(answer.content)
+                    answer.citations.forEach { citation ->
+                        TextButton(onClick = { uriHandler.openUri(vm.subjectUrl(citation.subjectId)) }) { Text("Open related event ${citation.subjectId.take(8)}") }
                     }
                 }
             }
@@ -228,6 +254,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
     val baseUrl by vm.baseUrl.collectAsStateWithLifecycle()
     val camera by vm.cameraFilter.collectAsStateWithLifecycle()
     val health by vm.health.collectAsStateWithLifecycle()
+    val capabilities by vm.capabilities.collectAsStateWithLifecycle()
 
     var urlDraft by remember(baseUrl) { mutableStateOf(baseUrl) }
     var cameraDraft by remember(camera) { mutableStateOf(camera) }
@@ -293,6 +320,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
                     )
                 }
             }
+            capabilities.data?.let { c -> Text("API ${c.apiVersion} · UUID subjects · summary=${c.summary.available} search=${c.search.available} chat=${c.chat.available}\nOwnership authentication: ${c.ownershipAuthentication}") }
         }
     }
 }

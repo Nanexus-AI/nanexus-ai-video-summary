@@ -3,6 +3,8 @@
 > 与 [Frigate](https://frigate.video/) 结合的 AI 视频摘要 / 智能安防助手。  
 > 本文档由初步构想细化而来，作为后续设计与实现的基线。
 
+阶段 8 客户端边界：Web/Android 默认只调用 Video Summary `/api/v1` 产品契约。Summary、Search 与异步 Chat 的关联对象均为 Event Intelligence Subject UUID，并经 Video Summary 的稳定 Subject Link 打开基座公开 Review/Evidence 入口。客户端不持有基座内部 URL/Token、不直连 Frigate、不复制 Review/Evidence 规则。Android Debug 可配置 LAN HTTP；Release 默认只允许 HTTPS。`owner_id` 仅用于数据隔离，生产认证与授权留待 Deployment/Security 阶段。
+
 ---
 
 ## 1. 产品定位

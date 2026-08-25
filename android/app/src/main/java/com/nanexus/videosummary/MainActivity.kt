@@ -9,6 +9,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -30,6 +32,7 @@ import com.nanexus.videosummary.presentation.screens.SearchScreen
 import com.nanexus.videosummary.presentation.screens.SettingsScreen
 import com.nanexus.videosummary.presentation.screens.SummaryScreen
 import com.nanexus.videosummary.presentation.screens.TimelineScreen
+import com.nanexus.videosummary.presentation.screens.ChatScreen
 import com.nanexus.videosummary.presentation.theme.NanexusTheme
 import com.nanexus.videosummary.viewmodel.AppViewModelFactory
 import com.nanexus.videosummary.viewmodel.EventDetailViewModel
@@ -37,6 +40,7 @@ import com.nanexus.videosummary.viewmodel.SearchViewModel
 import com.nanexus.videosummary.viewmodel.SettingsViewModel
 import com.nanexus.videosummary.viewmodel.SummaryViewModel
 import com.nanexus.videosummary.viewmodel.TimelineViewModel
+import com.nanexus.videosummary.viewmodel.ChatViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,8 +63,8 @@ private fun NanexusRoot(factory: AppViewModelFactory) {
     val route = backStack?.destination?.route
     val showBottomBar = route in setOf(
         Dest.Summary.route,
-        Dest.Timeline.route,
         Dest.Search.route,
+        Dest.Chat.route,
     )
 
     Scaffold(
@@ -79,15 +83,10 @@ private fun NanexusRoot(factory: AppViewModelFactory) {
                         label = { Text("Today") },
                     )
                     NavigationBarItem(
-                        selected = route == Dest.Timeline.route,
-                        onClick = {
-                            navController.navigate(Dest.Timeline.route) {
-                                popUpTo(Dest.Summary.route)
-                                launchSingleTop = true
-                            }
-                        },
-                        icon = { Icon(Icons.Default.DateRange, contentDescription = null) },
-                        label = { Text("Timeline") },
+                        selected = route == Dest.Chat.route,
+                        onClick = { navController.navigate(Dest.Chat.route) { popUpTo(Dest.Summary.route); launchSingleTop = true } },
+                        icon = { Icon(Icons.Default.Send, contentDescription = null) },
+                        label = { Text("Chat") },
                     )
                     NavigationBarItem(
                         selected = route == Dest.Search.route,
@@ -125,10 +124,15 @@ private fun NanexusRoot(factory: AppViewModelFactory) {
             }
             composable(Dest.Search.route) {
                 val vm: SearchViewModel = viewModel(factory = factory)
+                val uriHandler = LocalUriHandler.current
                 SearchScreen(
                     vm = vm,
-                    onOpenEvent = { id -> navController.navigate(Dest.Event.create(id)) },
+                    onOpenSubject = { id -> uriHandler.openUri(vm.subjectUrl(id)) },
                 )
+            }
+            composable(Dest.Chat.route) {
+                val vm: ChatViewModel = viewModel(factory = factory)
+                ChatScreen(vm)
             }
             composable(Dest.Settings.route) {
                 val vm: SettingsViewModel = viewModel(factory = factory)

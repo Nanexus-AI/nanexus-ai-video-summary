@@ -59,6 +59,23 @@ class HealthResponse(BaseModel):
     chat_mode: str
 
 
+class ClientFeatureCapability(BaseModel):
+    available: bool
+    mode: str | None = None
+    asynchronous: bool = False
+
+
+class ClientCapabilitiesV1(BaseModel):
+    api_version: str = "v1"
+    subject_reference: str = "uuid"
+    subject_path_template: str
+    summary: ClientFeatureCapability
+    search: ClientFeatureCapability
+    chat: ClientFeatureCapability
+    legacy_fallback_available: bool
+    ownership_authentication: str = "not-configured"
+
+
 class RegenerateSummaryRequest(BaseModel):
     summary_date: date | None = None
     camera: str | None = None
@@ -235,6 +252,7 @@ class SemanticSearchHit(BaseModel):
     labels: list[str]
     occurred_at: datetime | None = None
     evidence: list[str]
+    subject_path: str
 
 
 class SemanticSearchResponse(BaseModel):

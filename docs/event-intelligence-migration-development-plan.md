@@ -1055,6 +1055,10 @@ App 连接服务器时先读取 Capability，根据支持情况显示或隐藏�
 - Summary/Search/Chat 能打开对应基座事件；
 - 主要页面具有自动测试或明确 UI 验收。
 
+### 14.5 实施状态（2026-08-24）
+
+CLIENT-WEB-001～003 与 CLIENT-ANDROID-001～006 已完成。两个客户端默认使用 Video Summary v1 Summary/Search/异步 Chat Job，并以稳定 Subject UUID 打开统一入口；Capability、降级、空态、错误、重试和处理态有自动化覆盖。Android Release 默认禁止明文 HTTP，旧 DTO/API/页面仍作为显式回退保留。验收证据见 [`client-stage8-acceptance.md`](./client-stage8-acceptance.md)，架构决定见 [`2026-08-24-client-stage8-adr.md`](./architecture-reviews/2026-08-24-client-stage8-adr.md)。本状态不授权开始阶段 9、Shadow Validation 或 Legacy Retirement。
+
 ## 15. 阶段 9：部署、安全和兼容
 
 ### 15.1 目标

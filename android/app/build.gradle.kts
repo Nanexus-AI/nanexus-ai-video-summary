@@ -17,8 +17,11 @@ android {
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Emulator → host machine. Change in Settings for real phones.
-        buildConfigField("String", "DEFAULT_BASE_URL", "\"http://10.0.2.2:8000\"")
+    }
+
+    buildTypes {
+        getByName("debug") { buildConfigField("String", "DEFAULT_BASE_URL", "\"http://10.0.2.2:8000\"") }
+        getByName("release") { buildConfigField("String", "DEFAULT_BASE_URL", "\"https://nanexus.invalid\"") }
     }
 
     buildFeatures {

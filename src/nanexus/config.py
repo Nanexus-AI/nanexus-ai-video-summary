@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     snapshots_dir: str = "data/snapshots"
     public_base_url: str = "http://127.0.0.1:8000"
     event_intelligence_url: str = "http://event-intelligence:8000"
+    # Browser/mobile-safe public origin used only to build stable Subject links.
+    event_intelligence_public_url: str = "http://127.0.0.1:8001"
     event_intelligence_token: str = ""
     event_intelligence_timeout_seconds: float = 10.0
     event_intelligence_poll_seconds: float = 1.0
@@ -76,6 +78,10 @@ class Settings(BaseSettings):
     chat_max_output_chars: int = 4_000
     chat_llm_input_cost_per_million_micros: int = 1_000_000
     chat_llm_output_cost_per_million_micros: int = 10_000_000
+
+    # Client compatibility. Legacy APIs remain available as an explicit rollback.
+    client_api_version: str = "v1"
+    legacy_client_api_enabled: bool = True
 
     # OpenAI-compatible LLM (optional)
     llm_api_key: str = ""

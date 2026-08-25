@@ -1,5 +1,13 @@
 # Migration development progress
 
+## 2026-08-24: Stage 8 Web and Android migration
+
+Added the Video Summary-owned Web product and migrated Android's default Summary/Search/Chat flows to stable v1 DTOs, capability negotiation, asynchronous Chat polling and Subject UUID links. Added a client-safe capability/Subject-link API, Debug/Release network split and centralized Android Token Provider boundary. Legacy client DTOs/routes/screens remain rollback-only.
+
+Verification: Video Summary backend 78 passed; Web 3 tests plus typecheck/build; Android JVM tests plus Debug/Release builds and release lint; Event Intelligence backend 153 passed/3 skipped with Ruff/Mypy, Event Intelligence Web 5 tests plus lint/typecheck/build. Both Compose configurations and migration offline SQL passed. A rebuilt migration image verified existing `5a` → head, downgrade/upgrade and a separate fresh install at `7c1c001009`. Broad Video Summary Mypy still reports pre-existing SQLAlchemy/queue/provider typing debt; changed Python files passed Ruff.
+
+No commit, publish, deployment, shadow validation or retirement was performed. Deployment/Security requires real authentication/authorization, HTTPS and secure token persistence; client `owner_id` is not production authentication.
+
 ## 2026-08-21: BASELINE-001～005 save legacy-system baseline
 
 ### Goal

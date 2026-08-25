@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.*
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -25,6 +27,20 @@ class BaselineTest {
         val response = Json { ignoreUnknownKeys = true }.decodeFromString<TimelineResponse>(json)
         assertEquals("evt-person-001", response.items.single().frigateId)
         assertNull(response.items.single().snapshotUri)
+    }
+
+    @Test fun v1FixtureUsesUuidSubjectsAndAsyncChat() {
+        val fixture = javaClass.getResource("/client-v1.json")!!.readText()
+        val root = Json.parseToJsonElement(fixture).jsonObject
+        val capabilities = Json.decodeFromJsonElement<CapabilitiesV1>(root.getValue("capabilities"))
+        val search = Json.decodeFromJsonElement<SemanticSearchResponseV1>(root.getValue("search"))
+        val chat = Json.decodeFromJsonElement<ChatJobV1>(root.getValue("chat"))
+        assertEquals("uuid", capabilities.subjectReference)
+        assertTrue(capabilities.chat.asynchronous)
+        assertEquals(36, search.items.single().subjectId.length)
+        assertEquals("completed", chat.status)
+        assertTrue(chat.answer!!.degraded)
+        assertEquals(search.items.single().subjectId, chat.answer!!.citations.single().subjectId)
     }
 
     @Test fun repositoryUrlComposition() {
@@ -51,7 +67,7 @@ class BaselineTest {
         assertNull(vm.state.value.data)
         vm.onQueryChange(" person "); vm.search(); advanceUntilIdle()
         assertEquals("person", source.lastQuery)
-        assertEquals(101, vm.state.value.data?.single()?.event?.id)
+        assertEquals("58e8dd46-66d0-4ac4-a025-7a44af2b6722", vm.state.value.data?.items?.single()?.subjectId)
     }
 }
 
@@ -71,4 +87,10 @@ private class FakeSource(private val failTimeline: Boolean = false) : NanexusDat
     override suspend fun search(query: String, camera: String?, limit: Int): SearchResponse { lastQuery = query; return SearchResponse(query, "keyword-stub", 1, listOf(SearchHit(event))) }
     override suspend fun event(eventId: Int) = event
     override fun snapshotUrl(baseUrl: String, eventId: Int) = "${baseUrl.trimEnd('/')}/events/$eventId/snapshot"
+    override suspend fun capabilitiesV1() = CapabilitiesV1("v1", "uuid", "/api/v1/subjects/{subject_id}", FeatureCapability(true), FeatureCapability(true), FeatureCapability(true, asynchronous = true), true, "not-configured")
+    override suspend fun summaryV1(localDate: String, timezone: String, camera: String?) = SummaryV1Response(SummaryV1("48e8dd46-66d0-4ac4-a025-7a44af2b6722", localDate, timezone, "default", content = "baseline summary", generator = "rule", modelVersion = "v1", status = "ready"))
+    override suspend fun searchV1(query: String, camera: String?, limit: Int, offset: Int): SemanticSearchResponseV1 { lastQuery = query; return SemanticSearchResponseV1(query, "semantic", items = listOf(SemanticSearchHitV1("58e8dd46-66d0-4ac4-a025-7a44af2b6722", .9, labels = listOf("person"), subjectPath = "/api/v1/subjects/58e8dd46-66d0-4ac4-a025-7a44af2b6722"))) }
+    override suspend fun createChatJobV1(message: String, ownerId: String, conversationId: Int?, camera: String?, timezone: String) = ChatJobV1("68e8dd46-66d0-4ac4-a025-7a44af2b6722", 1, "completed", answer = ChatMessageV1("answer", "extractive", degraded = true))
+    override suspend fun chatJobV1(jobId: String, ownerId: String) = createChatJobV1("", ownerId)
+    override fun subjectUrl(baseUrl: String, subjectId: String) = "${baseUrl.trimEnd('/')}/api/v1/subjects/$subjectId"
 }

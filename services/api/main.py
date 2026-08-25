@@ -33,6 +33,8 @@ from nanexus.schemas import (
     ChatRequest,
     ChatResponse,
     ChatV1Request,
+    ClientCapabilitiesV1,
+    ClientFeatureCapability,
     ConversationOut,
     ConversationV1Out,
     EventOut,
@@ -98,6 +100,25 @@ def health(db: Session = Depends(get_db)) -> HealthResponse:
         summary_mode=settings.summary_mode,
         chat_mode=settings.chat_mode,
     )
+
+
+@app.get("/api/v1/capabilities", response_model=ClientCapabilitiesV1)
+def client_capabilities_v1() -> ClientCapabilitiesV1:
+    """Public client contract; deliberately excludes tokens and internal URLs."""
+    return ClientCapabilitiesV1(
+        subject_path_template="/api/v1/subjects/{subject_id}",
+        summary=ClientFeatureCapability(available=True, mode=settings.summary_mode, asynchronous=True),
+        search=ClientFeatureCapability(available=True, mode="semantic"),
+        chat=ClientFeatureCapability(available=True, mode=settings.chat_mode, asynchronous=True),
+        legacy_fallback_available=settings.legacy_client_api_enabled,
+    )
+
+
+@app.get("/api/v1/subjects/{subject_id}")
+def open_subject_v1(subject_id: UUID) -> RedirectResponse:
+    """Open the authoritative Event Intelligence review without proxying its logic."""
+    target = f"{settings.event_intelligence_public_url.rstrip('/')}/api/v1/events/{subject_id}"
+    return RedirectResponse(url=target, status_code=307)
 
 
 @app.get("/timeline", response_model=TimelineResponse)
@@ -313,6 +334,7 @@ def semantic_search_v1(
                 f"{record.source_job_id}/evidence/{evidence_id}"
                 for evidence_id in record.evidence_ids
             ],
+            subject_path=f"/api/v1/subjects/{record.subject_id}",
         )
         for record, score in rows
     ]

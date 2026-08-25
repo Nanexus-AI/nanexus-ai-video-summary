@@ -74,3 +74,72 @@ data class SearchResponse(
     val total: Int,
     val items: List<SearchHit>,
 )
+
+// Stable v1 product DTOs. Legacy DTOs above remain rollback-only.
+@Serializable data class FeatureCapability(val available: Boolean, val mode: String? = null, val asynchronous: Boolean = false)
+@Serializable data class CapabilitiesV1(
+    @SerialName("api_version") val apiVersion: String,
+    @SerialName("subject_reference") val subjectReference: String,
+    @SerialName("subject_path_template") val subjectPathTemplate: String,
+    val summary: FeatureCapability,
+    val search: FeatureCapability,
+    val chat: FeatureCapability,
+    @SerialName("legacy_fallback_available") val legacyFallbackAvailable: Boolean,
+    @SerialName("ownership_authentication") val ownershipAuthentication: String,
+)
+
+@Serializable data class SummaryV1(
+    val id: String,
+    @SerialName("local_date") val localDate: String,
+    val timezone: String,
+    @SerialName("site_id") val siteId: String,
+    @SerialName("camera_id") val cameraId: String? = null,
+    val content: String,
+    @SerialName("source_subject_ids") val sourceSubjectIds: List<String> = emptyList(),
+    val generator: String,
+    @SerialName("model_version") val modelVersion: String,
+    val status: String,
+)
+@Serializable data class SummaryV1Response(val summary: SummaryV1? = null)
+
+@Serializable data class SemanticSearchRequestV1(val query: String, val limit: Int = 20, val offset: Int = 0, val camera: String? = null)
+@Serializable data class SemanticSearchHitV1(
+    @SerialName("subject_id") val subjectId: String,
+    val score: Double,
+    val camera: String? = null,
+    val labels: List<String> = emptyList(),
+    @SerialName("occurred_at") val occurredAt: String? = null,
+    @SerialName("subject_path") val subjectPath: String,
+)
+@Serializable data class SemanticSearchResponseV1(
+    val query: String,
+    val method: String,
+    val degraded: Boolean = false,
+    @SerialName("degradation_reason") val degradationReason: String? = null,
+    @SerialName("next_offset") val nextOffset: Int? = null,
+    val items: List<SemanticSearchHitV1>,
+)
+
+@Serializable data class ChatRequestV1(
+    val message: String,
+    @SerialName("owner_id") val ownerId: String,
+    @SerialName("conversation_id") val conversationId: Int? = null,
+    val camera: String? = null,
+    @SerialName("site_id") val siteId: String = "default",
+    val timezone: String = "UTC",
+)
+@Serializable data class CitationV1(@SerialName("subject_id") val subjectId: String, @SerialName("review_path") val reviewPath: String)
+@Serializable data class ChatMessageV1(
+    val content: String,
+    val method: String? = null,
+    val degraded: Boolean = false,
+    @SerialName("error_code") val errorCode: String? = null,
+    val citations: List<CitationV1> = emptyList(),
+)
+@Serializable data class ChatJobV1(
+    val id: String,
+    @SerialName("conversation_id") val conversationId: Int,
+    val status: String,
+    @SerialName("error_code") val errorCode: String? = null,
+    val answer: ChatMessageV1? = null,
+)
