@@ -67,13 +67,16 @@ class ClientFeatureCapability(BaseModel):
 
 class ClientCapabilitiesV1(BaseModel):
     api_version: str = "v1"
+    capability_version: str = "1"
+    canonical_schema_version: str = "1"
+    processor_contract_version: str = "1"
     subject_reference: str = "uuid"
     subject_path_template: str
     summary: ClientFeatureCapability
     search: ClientFeatureCapability
     chat: ClientFeatureCapability
     legacy_fallback_available: bool
-    ownership_authentication: str = "not-configured"
+    ownership_authentication: str
 
 
 class RegenerateSummaryRequest(BaseModel):
@@ -180,7 +183,7 @@ class ConversationOut(BaseModel):
 
 class ChatV1Request(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
-    owner_id: str = Field(min_length=1, max_length=128)
+    owner_id: str | None = Field(default=None, min_length=1, max_length=128)
     conversation_id: int | None = None
     camera: str | None = Field(default=None, max_length=255)
     site_id: str = Field(default="default", min_length=1, max_length=255)

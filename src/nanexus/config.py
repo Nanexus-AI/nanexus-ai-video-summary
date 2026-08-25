@@ -1,4 +1,6 @@
 from functools import lru_cache
+from pathlib import Path
+from urllib.parse import urlparse
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -88,6 +90,40 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://api.openai.com/v1"
     llm_model: str = "gpt-4o-mini"
     llm_timeout_seconds: float = 60.0
+
+    # Security boundary. Development is explicit and must never be used by the
+    # production Compose profile. Static is a deterministic local reference
+    # identity provider; gateways can mint/rotate opaque tokens out of band.
+    deployment_mode: str = "development"  # development | production
+    auth_mode: str = "development"  # development | static
+    auth_tokens_file: str = ""
+    service_token_file: str = ""
+    cors_allowed_origins: str = "http://127.0.0.1:8080,http://localhost:8080"
+    expected_event_api_version: str = "1.0"
+    expected_canonical_schema_version: str = "1.0"
+    expected_capability_version: str = "1.0"
+    expected_processor_contract_version: str = "1.0"
+    capability_check_enabled: bool = False
+    worker_heartbeat_ttl_seconds: int = 30
+
+    def validate_runtime(self) -> None:
+        if self.deployment_mode not in {"development", "production"}:
+            raise RuntimeError("DEPLOYMENT_MODE must be development or production")
+        if self.auth_mode not in {"development", "static"}:
+            raise RuntimeError("AUTH_MODE must be development or static")
+        if self.deployment_mode == "production":
+            if self.auth_mode == "development":
+                raise RuntimeError("production refuses development authentication")
+            if not self.auth_tokens_file or not Path(self.auth_tokens_file).is_file():
+                raise RuntimeError("production requires AUTH_TOKENS_FILE")
+            if not self.service_token_file or not Path(self.service_token_file).is_file():
+                raise RuntimeError("production requires SERVICE_TOKEN_FILE")
+            for name, value in {
+                "PUBLIC_BASE_URL": self.public_base_url,
+                "EVENT_INTELLIGENCE_PUBLIC_URL": self.event_intelligence_public_url,
+            }.items():
+                if urlparse(value).scheme != "https":
+                    raise RuntimeError(f"production requires HTTPS for {name}")
 
 
 @lru_cache

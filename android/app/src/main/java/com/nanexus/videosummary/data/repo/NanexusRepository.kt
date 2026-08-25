@@ -2,6 +2,7 @@ package com.nanexus.videosummary.data.repo
 
 import com.nanexus.videosummary.data.api.ApiClient
 import com.nanexus.videosummary.data.api.NanexusApi
+import com.nanexus.videosummary.data.api.TokenProvider
 import com.nanexus.videosummary.data.model.*
 import com.nanexus.videosummary.data.settings.AppSettings
 import kotlinx.coroutines.flow.Flow
@@ -26,7 +27,7 @@ interface NanexusDataSource {
     fun subjectUrl(baseUrl: String, subjectId: String): String
 }
 
-class NanexusRepository(private val settings: AppSettings) : NanexusDataSource {
+class NanexusRepository(private val settings: AppSettings, private val tokenProvider: TokenProvider = com.nanexus.videosummary.data.api.NoTokenProvider) : NanexusDataSource {
     override val baseUrl: Flow<String> = settings.baseUrl
     override val cameraFilter: Flow<String> = settings.cameraFilter
     private var cachedUrl: String? = null
@@ -36,7 +37,7 @@ class NanexusRepository(private val settings: AppSettings) : NanexusDataSource {
         val url = settings.baseUrl.first()
         val current = api
         if (current != null && cachedUrl == url) return current
-        return ApiClient.create(url).also { api = it; cachedUrl = url }
+        return ApiClient.create(url, tokenProvider).also { api = it; cachedUrl = url }
     }
 
     override suspend fun setBaseUrl(url: String) { settings.setBaseUrl(url); api = null; cachedUrl = null }
@@ -47,10 +48,14 @@ class NanexusRepository(private val settings: AppSettings) : NanexusDataSource {
     override suspend fun search(query: String, camera: String?, limit: Int): SearchResponse = client().search(SearchRequest(query = query, limit = limit, camera = camera))
     override suspend fun event(eventId: Int): EventOut = client().event(eventId)
     override fun snapshotUrl(baseUrl: String, eventId: Int): String = "${baseUrl.trimEnd('/')}/events/$eventId/snapshot"
-    override suspend fun capabilitiesV1() = client().capabilitiesV1()
+    override suspend fun capabilitiesV1() = client().capabilitiesV1().also {
+        require(it.apiVersion == "v1" && it.capabilityVersion == "1" && it.canonicalSchemaVersion == "1" && it.processorContractVersion == "1" && it.subjectReference == "uuid") {
+            "Incompatible Video Summary capability"
+        }
+    }
     override suspend fun summaryV1(localDate: String, timezone: String, camera: String?) = client().summaryV1(localDate, timezone, camera = camera)
     override suspend fun searchV1(query: String, camera: String?, limit: Int, offset: Int) = client().searchV1(SemanticSearchRequestV1(query, limit, offset, camera))
-    override suspend fun createChatJobV1(message: String, ownerId: String, conversationId: Int?, camera: String?, timezone: String) = client().createChatJobV1(ChatRequestV1(message, ownerId, conversationId, camera, timezone = timezone))
-    override suspend fun chatJobV1(jobId: String, ownerId: String) = client().chatJobV1(jobId, ownerId)
+    override suspend fun createChatJobV1(message: String, ownerId: String, conversationId: Int?, camera: String?, timezone: String) = client().createChatJobV1(ChatRequestV1(message, if (tokenProvider === com.nanexus.videosummary.data.api.NoTokenProvider) ownerId else null, conversationId, camera, timezone = timezone))
+    override suspend fun chatJobV1(jobId: String, ownerId: String) = client().chatJobV1(jobId, if (tokenProvider === com.nanexus.videosummary.data.api.NoTokenProvider) ownerId else null)
     override fun subjectUrl(baseUrl: String, subjectId: String) = "${baseUrl.trimEnd('/')}/api/v1/subjects/$subjectId"
 }

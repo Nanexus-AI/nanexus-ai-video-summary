@@ -98,7 +98,11 @@ def test_search_v1_degrades_to_empty_without_legacy_fallback(monkeypatch):
     monkeypatch.setattr(
         api, "embed_query", lambda _: (_ for _ in ()).throw(QueryEmbeddingUnavailable("offline"))
     )
-    response = api.semantic_search_v1(api.SemanticSearchRequest(query="person"), db=object())
+    response = api.semantic_search_v1(
+        api.SemanticSearchRequest(query="person"),
+        db=object(),
+        principal=api.Principal("test", "reader", frozenset({"*"})),
+    )
     assert response.degraded is True
     assert response.method == "semantic-unavailable"
     assert response.items == []

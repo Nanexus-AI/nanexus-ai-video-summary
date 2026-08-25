@@ -3,6 +3,9 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import App from "./App";
 const cap = {
   api_version: "v1",
+  capability_version: "1",
+  canonical_schema_version: "1",
+  processor_contract_version: "1",
   subject_reference: "uuid",
   subject_path_template: "/api/v1/subjects/{subject_id}",
   summary: { available: true, asynchronous: true },

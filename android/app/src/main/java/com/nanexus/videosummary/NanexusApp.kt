@@ -3,6 +3,7 @@ package com.nanexus.videosummary
 import android.app.Application
 import com.nanexus.videosummary.data.repo.NanexusRepository
 import com.nanexus.videosummary.data.settings.AppSettings
+import com.nanexus.videosummary.data.api.AndroidKeystoreTokenProvider
 
 class NanexusApp : Application() {
     lateinit var repository: NanexusRepository
@@ -10,6 +11,6 @@ class NanexusApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        repository = NanexusRepository(AppSettings(this))
+        repository = NanexusRepository(AppSettings(this), AndroidKeystoreTokenProvider(this))
     }
 }

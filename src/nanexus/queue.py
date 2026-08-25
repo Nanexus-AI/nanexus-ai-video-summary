@@ -112,3 +112,10 @@ class AIQueue:
 
     def ping(self) -> Any:
         return self._client.ping()
+
+    def heartbeat(self, worker: str) -> None:
+        self._client.set(
+            f"nanexus:heartbeat:{worker}",
+            __import__("datetime").datetime.now(__import__("datetime").UTC).isoformat(),
+            ex=self._settings.worker_heartbeat_ttl_seconds,
+        )

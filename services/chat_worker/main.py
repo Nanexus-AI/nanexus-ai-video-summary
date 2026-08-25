@@ -47,6 +47,7 @@ def main() -> None:
     signal.signal(signal.SIGINT, _stop)
     queue = AIQueue()
     while _running:
+        queue.heartbeat("chat")
         item = queue.dequeue_chat(timeout=2)
         if item:
             process(item.job_id)

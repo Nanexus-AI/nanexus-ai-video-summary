@@ -23,7 +23,7 @@ interface NanexusApi {
     @GET("api/v1/summaries/{localDate}") suspend fun summaryV1(@Path("localDate") localDate: String, @Query("timezone") timezone: String, @Query("site_id") siteId: String = "default", @Query("camera_id") camera: String? = null): SummaryV1Response
     @POST("api/v1/search") suspend fun searchV1(@Body body: SemanticSearchRequestV1): SemanticSearchResponseV1
     @POST("api/v1/chat/jobs") suspend fun createChatJobV1(@Body body: ChatRequestV1): ChatJobV1
-    @GET("api/v1/chat/jobs/{jobId}") suspend fun chatJobV1(@Path("jobId") jobId: String, @Query("owner_id") ownerId: String): ChatJobV1
+    @GET("api/v1/chat/jobs/{jobId}") suspend fun chatJobV1(@Path("jobId") jobId: String, @Query("owner_id") ownerId: String? = null): ChatJobV1
     @GET("health")
     suspend fun health(): HealthResponse
 

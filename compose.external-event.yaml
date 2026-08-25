@@ -1,0 +1,7 @@
+services:
+  video-summary-api:
+    extra_hosts: ["host.docker.internal:host-gateway"]
+  summary-worker:
+    extra_hosts: ["host.docker.internal:host-gateway"]
+  embedding-worker:
+    extra_hosts: ["host.docker.internal:host-gateway"]

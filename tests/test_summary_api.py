@@ -47,7 +47,8 @@ class FakeDB:
 def test_summary_v1_reads_precomputed_result_without_generation(monkeypatch) -> None:
     summary = ready_summary()
     response = api.summary_v1(
-        date(2026, 8, 20), "America/Toronto", "home", None, FakeDB(summary)
+        date(2026, 8, 20), "America/Toronto", "home", None, FakeDB(summary),
+        api.Principal("test", "reader", frozenset({"*"})),
     )
     assert response.summary is not None
     assert response.summary.content == "precomputed"
@@ -74,6 +75,7 @@ def test_rebuild_v1_only_enqueues_and_exposes_job_status(monkeypatch) -> None:
             mode="rule",
         ),
         db,
+        api.Principal("test", "admin", frozenset({"*"})),
     )
     assert response.id == summary.id
     assert response.status == "queued"

@@ -1,0 +1,186 @@
+name: nanexus-video-summary-release
+
+x-video-env: &video-env
+  DATABASE_URL: postgresql+psycopg://nanexus:${VIDEO_DB_PASSWORD:?set VIDEO_DB_PASSWORD}@video-db:5432/video_summary
+  REDIS_URL: redis://redis:6379/0
+  EVENT_INTELLIGENCE_URL: ${EVENT_INTELLIGENCE_URL:-http://event-intelligence:8000}
+  EVENT_INTELLIGENCE_TOKEN: ${PROCESSOR_API_TOKEN:?set PROCESSOR_API_TOKEN}
+  EVENT_INTELLIGENCE_PUBLIC_URL: ${EVENT_INTELLIGENCE_PUBLIC_URL:-https://events.invalid}
+  PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://summary.invalid}
+  DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-production}
+  AUTH_MODE: ${AUTH_MODE:-static}
+  AUTH_TOKENS_FILE: /run/secrets/auth_tokens
+  SERVICE_TOKEN_FILE: /run/secrets/service_token
+  CAPABILITY_CHECK_ENABLED: "true"
+  MODEL_PROVIDER: ${MODEL_PROVIDER:-stub}
+  SUMMARY_MODE: ${SUMMARY_MODE:-rule}
+  CHAT_MODE: ${CHAT_MODE:-extractive}
+
+x-video-service: &video-service
+  build:
+    context: .
+    dockerfile: docker/Dockerfile.search
+  environment: *video-env
+  secrets: [auth_tokens, service_token]
+  restart: unless-stopped
+  depends_on:
+    video-migrate: {condition: service_completed_successfully}
+    redis: {condition: service_healthy}
+
+services:
+  event-db:
+    profiles: [integrated]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: event_intelligence
+      POSTGRES_USER: nanexus
+      POSTGRES_PASSWORD: ${EVENT_DB_PASSWORD:?set EVENT_DB_PASSWORD}
+    volumes: [event-db-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U nanexus -d event_intelligence"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  event-migrate:
+    profiles: [integrated]
+    build: {context: ../nanexus_frigate_extension/backend, target: production}
+    command: [uv, run, --no-sync, alembic, upgrade, head]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://nanexus:${EVENT_DB_PASSWORD:?set EVENT_DB_PASSWORD}@event-db:5432/event_intelligence
+    depends_on: {event-db: {condition: service_healthy}}
+    restart: "no"
+
+  event-intelligence:
+    profiles: [integrated]
+    build: {context: ../nanexus_frigate_extension/backend, target: production}
+    environment:
+      DATABASE_URL: postgresql+asyncpg://nanexus:${EVENT_DB_PASSWORD:?set EVENT_DB_PASSWORD}@event-db:5432/event_intelligence
+      REDIS_URL: redis://redis:6379/1
+      PROCESSOR_API_TOKEN: ${PROCESSOR_API_TOKEN:?set PROCESSOR_API_TOKEN}
+      ENRICHMENT_PROCESSOR_MODE: external
+    depends_on:
+      event-migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, uv, run, --no-sync, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  event-worker:
+    profiles: [integrated]
+    build: {context: ../nanexus_frigate_extension/backend, target: production}
+    command: [uv, run, --no-sync, nanexus-pipeline-worker]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://nanexus:${EVENT_DB_PASSWORD:?set EVENT_DB_PASSWORD}@event-db:5432/event_intelligence
+      REDIS_URL: redis://redis:6379/1
+      PROCESSOR_API_TOKEN: ${PROCESSOR_API_TOKEN:?set PROCESSOR_API_TOKEN}
+      ENRICHMENT_PROCESSOR_MODE: external
+    depends_on:
+      event-migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+    restart: unless-stopped
+
+  video-db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: video_summary
+      POSTGRES_USER: nanexus
+      POSTGRES_PASSWORD: ${VIDEO_DB_PASSWORD:?set VIDEO_DB_PASSWORD}
+    volumes: [video-db-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U nanexus -d video_summary"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: [redis-server, --appendonly, "yes"]
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  video-migrate:
+    build: {context: ., dockerfile: docker/Dockerfile.search}
+    command: [alembic, upgrade, head]
+    environment: *video-env
+    secrets: [auth_tokens, service_token]
+    depends_on: {video-db: {condition: service_healthy}}
+    restart: "no"
+
+  model-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.model-worker
+      args: {MODEL_PROFILE: "${MODEL_BUILD_PROFILE:-stub}"}
+    command: [uvicorn, services.model_service.main:app, --host, 0.0.0.0, --port, "8010"]
+    environment:
+      MODEL_PROVIDER: ${MODEL_PROVIDER:-stub}
+      AI_DEVICE: ${AI_DEVICE:-cpu}
+      OPENCLIP_MODEL: ${OPENCLIP_MODEL:-ViT-B-32}
+      OPENCLIP_PRETRAINED: ${OPENCLIP_PRETRAINED:-openai}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  embedding-worker:
+    <<: *video-service
+    command: [python, -m, services.embedding_worker.main]
+    depends_on:
+      video-migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+      model-service: {condition: service_healthy}
+
+  enrichment-worker:
+    <<: *video-service
+    command: [python, -m, services.event_intelligence_worker.main]
+    depends_on:
+      video-migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+      model-service: {condition: service_healthy}
+
+  summary-worker:
+    <<: *video-service
+    command: [python, -m, services.summary_worker.main]
+
+  chat-worker:
+    <<: *video-service
+    command: [python, -m, services.chat_worker.main]
+    depends_on:
+      video-migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+      model-service: {condition: service_healthy}
+
+  video-summary-api:
+    <<: *video-service
+    command: [uvicorn, services.api.main:app, --host, 0.0.0.0, --port, "8000"]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live')"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+    ports: ["127.0.0.1:8000:8000"]
+
+  web:
+    build: {context: ., dockerfile: docker/Dockerfile.web}
+    depends_on: {video-summary-api: {condition: service_healthy}}
+    ports: ["127.0.0.1:8080:8080"]
+    restart: unless-stopped
+
+secrets:
+  auth_tokens: {file: "${AUTH_TOKENS_FILE:?set AUTH_TOKENS_FILE}"}
+  service_token: {file: "${SERVICE_TOKEN_FILE:?set SERVICE_TOKEN_FILE}"}
+
+volumes:
+  event-db-data:
+  video-db-data:
+  redis-data:

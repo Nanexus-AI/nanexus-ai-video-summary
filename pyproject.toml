@@ -7,22 +7,22 @@ name = "nanexus-ai-video-summary"
 version = "0.3.0"
 description = "AI video summary layer for Frigate"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12,<3.13"
 dependencies = [
-  "fastapi>=0.115.0",
-  "uvicorn[standard]>=0.32.0",
-  "sqlalchemy>=2.0.36",
-  "psycopg[binary]>=3.2.3",
-  "pgvector>=0.3.6",
-  "alembic>=1.14.0",
-  "redis>=5.2.0",
-  "paho-mqtt>=2.1.0",
-  "pydantic>=2.10.0",
-  "pydantic-settings>=2.6.0",
-  "python-dotenv>=1.0.1",
-  "httpx>=0.28.0",
-  "Pillow>=10.0.0",
-  "numpy>=1.26.0",
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.32,<1",
+  "sqlalchemy>=2.0.36,<3",
+  "psycopg[binary]>=3.2.3,<4",
+  "pgvector>=0.3.6,<1",
+  "alembic>=1.14,<2",
+  "redis>=5.2,<9",
+  "paho-mqtt>=2.1,<3",
+  "pydantic>=2.10,<3",
+  "pydantic-settings>=2.6,<3",
+  "python-dotenv>=1.0.1,<2",
+  "httpx>=0.28,<1",
+  "Pillow>=10,<13",
+  "numpy>=1.26,<3",
 ]
 
 [tool.setuptools.packages.find]
@@ -30,11 +30,23 @@ where = ["src"]
 
 [project.optional-dependencies]
 openclip = [
-  "torch>=2.2.0",
-  "torchvision>=0.17.0",
-  "open-clip-torch>=2.26.0",
+  "torch>=2.2,<3",
+  "torchvision>=0.17,<1",
+  "open-clip-torch>=2.26,<4",
 ]
-test = ["pytest>=8.3.0"]
+test = ["pytest>=8.3,<9", "mypy>=1.14,<2", "ruff>=0.9,<1"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E402", "E501"]
+
+[tool.mypy]
+python_version = "3.12"
+packages = ["nanexus"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

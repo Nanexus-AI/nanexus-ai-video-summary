@@ -187,6 +187,7 @@ def main() -> None:
 
     last_schedule_check = 0.0
     while _running:
+        queue.heartbeat("summary")
         job = queue.dequeue_summary(timeout=2)
         if job is not None:
             process_job(job)

@@ -68,8 +68,8 @@ export default function App() {
         </nav>
       </header>
       {capError && <State error={capError} retry={loadCap} />}{" "}
-      {cap && cap.subject_reference !== "uuid" ? (
-        <State error="Incompatible server: UUID subject references are required." />
+      {cap && (cap.api_version !== "v1" || cap.capability_version !== "1" || cap.canonical_schema_version !== "1" || cap.processor_contract_version !== "1" || cap.subject_reference !== "uuid") ? (
+        <State error="Incompatible server: Video API v1, capability/schema/processor v1 and UUID subjects are required." />
       ) : page === "summary" ? (
         <SummaryPage enabled={!!cap?.summary.available} />
       ) : page === "search" ? (

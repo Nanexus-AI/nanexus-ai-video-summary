@@ -2,6 +2,7 @@ import logging
 
 from nanexus.db import SessionLocal
 from nanexus.indexing import EmbeddingQueue, persist_embedding
+from nanexus.queue import AIQueue
 
 logger = logging.getLogger("embedding_worker")
 
@@ -22,7 +23,9 @@ def process_once(queue=None, session_factory=SessionLocal):
 
 def main():
     logging.basicConfig(level=logging.INFO)
+    health = AIQueue()
     while True:
+        health.heartbeat("embedding")
         process_once()
 
 

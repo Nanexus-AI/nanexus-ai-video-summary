@@ -21,9 +21,8 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def init_db() -> None:
-    """Ensure pgvector extension and create tables."""
-    from nanexus import models  # noqa: F401
-
-    with engine.begin() as conn:
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-    Base.metadata.create_all(bind=engine)
+    """Fail when the schema is absent; only the migration job may create it."""
+    with engine.connect() as conn:
+        revision = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+        if not revision:
+            raise RuntimeError("database has no Alembic revision; run the migration job")

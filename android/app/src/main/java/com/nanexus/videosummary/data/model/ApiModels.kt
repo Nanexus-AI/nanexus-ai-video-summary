@@ -86,6 +86,9 @@ data class SearchResponse(
     val chat: FeatureCapability,
     @SerialName("legacy_fallback_available") val legacyFallbackAvailable: Boolean,
     @SerialName("ownership_authentication") val ownershipAuthentication: String,
+    @SerialName("capability_version") val capabilityVersion: String = "1",
+    @SerialName("canonical_schema_version") val canonicalSchemaVersion: String = "1",
+    @SerialName("processor_contract_version") val processorContractVersion: String = "1",
 )
 
 @Serializable data class SummaryV1(
@@ -122,7 +125,7 @@ data class SearchResponse(
 
 @Serializable data class ChatRequestV1(
     val message: String,
-    @SerialName("owner_id") val ownerId: String,
+    @SerialName("owner_id") val ownerId: String? = null,
     @SerialName("conversation_id") val conversationId: Int? = null,
     val camera: String? = null,
     @SerialName("site_id") val siteId: String = "default",

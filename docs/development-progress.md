@@ -6,7 +6,11 @@ Added the Video Summary-owned Web product and migrated Android's default Summary
 
 Verification: Video Summary backend 78 passed; Web 3 tests plus typecheck/build; Android JVM tests plus Debug/Release builds and release lint; Event Intelligence backend 153 passed/3 skipped with Ruff/Mypy, Event Intelligence Web 5 tests plus lint/typecheck/build. Both Compose configurations and migration offline SQL passed. A rebuilt migration image verified existing `5a` → head, downgrade/upgrade and a separate fresh install at `7c1c001009`. Broad Video Summary Mypy still reports pre-existing SQLAlchemy/queue/provider typing debt; changed Python files passed Ruff.
 
-No commit, publish, deployment, shadow validation or retirement was performed. Deployment/Security requires real authentication/authorization, HTTPS and secure token persistence; client `owner_id` is not production authentication.
+No commit, publish, deployment, shadow validation or retirement was performed.
+
+## 2026-08-24: Stage 9 deployment, security and compatibility
+
+Added production fail-closed owner/site/role authorization, HTTPS/CORS/security headers, Android Keystore token storage, frozen Python 3.12 dependencies, integrated/external Compose modes, capability startup checks, operational health/metrics, and Stub/CPU/GPU/Cloud profiles. Development `owner_id` remains isolation-only; production derives ownership from authenticated identity. Legacy API/DTO/client/data/Compose rollback remains. Full Video Summary Mypy still reports nine pre-existing errors and is not reported as passing. No Shadow Validation or retirement began.
 
 ## 2026-08-21: BASELINE-001～005 save legacy-system baseline
 

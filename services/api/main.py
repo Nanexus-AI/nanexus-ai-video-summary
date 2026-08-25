@@ -4,12 +4,15 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from nanexus.chat import run_chat
+from nanexus.auth import Principal, current_principal
+from nanexus.compatibility import check_event_intelligence
 from nanexus.chat_v1 import create_chat_job
 from nanexus.config import get_settings
 from nanexus.db import get_db, init_db
@@ -27,6 +30,7 @@ from nanexus.models import (
     Summary,
 )
 from nanexus.queue import AIJob, AIQueue, ChatQueueJob, SummaryJob
+from nanexus.observability import prometheus, snapshot
 from nanexus.schemas import (
     ChatJobV1Out,
     ChatMessageV1Out,
@@ -70,11 +74,35 @@ from nanexus.summary import (
 
 settings = get_settings()
 app = FastAPI(title="Nanexus AI Video Summary", version="0.3.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[item.strip() for item in settings.cors_allowed_origins.split(",") if item.strip()],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "HEAD"],
+    allow_headers=["Authorization", "Content-Type", "X-Nanexus-Dev-Owner"],
+)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.on_event("startup")
 def on_startup() -> None:
+    settings.validate_runtime()
     init_db()
+    if settings.capability_check_enabled:
+        compatibility = check_event_intelligence(settings)
+        if not compatibility.compatible:
+            raise RuntimeError(compatibility.reason)
     snapshots_dir()
 
 
@@ -102,6 +130,62 @@ def health(db: Session = Depends(get_db)) -> HealthResponse:
     )
 
 
+@app.get("/health/live")
+def liveness() -> dict[str, str]:
+    return {"status": "alive"}
+
+
+@app.get("/health/ready")
+def readiness(db: Session = Depends(get_db)) -> Response:
+    try:
+        db.execute(text("SELECT 1"))
+        state = snapshot(db)
+    except Exception:
+        return Response('{"status":"not-ready"}', status_code=503, media_type="application/json")
+    missing_workers = [name for name, value in state["worker_heartbeats"].items() if not value]
+    missing_services: list[str] = []
+    try:
+        import httpx
+
+        if httpx.get(f"{settings.model_service_url.rstrip('/')}/health", timeout=2).status_code != 200:
+            missing_services.append("model")
+    except Exception:
+        missing_services.append("model")
+    if not check_event_intelligence(settings).compatible:
+        missing_services.append("event_intelligence")
+    status = "degraded" if missing_workers or missing_services else "ready"
+    return Response(
+        content=__import__("json").dumps(
+            {"status": status, "missing_workers": missing_workers, "missing_services": missing_services}
+        ),
+        status_code=200,
+        media_type="application/json",
+    )
+
+
+@app.get("/api/v1/operations/status")
+def operations_status(
+    db: Session = Depends(get_db), principal: Principal = Depends(current_principal)
+) -> dict:
+    principal.require("admin")
+    data = snapshot(db)
+    compatibility = check_event_intelligence(settings)
+    data["event_intelligence"] = {
+        "connected": compatibility.compatible,
+        "reason": compatibility.reason,
+    }
+    data["migration_schema"] = "managed-by-alembic"
+    return data
+
+
+@app.get("/metrics")
+def metrics(
+    db: Session = Depends(get_db), principal: Principal = Depends(current_principal)
+) -> Response:
+    principal.require("admin")
+    return Response(prometheus(snapshot(db)), media_type="text/plain; version=0.0.4")
+
+
 @app.get("/api/v1/capabilities", response_model=ClientCapabilitiesV1)
 def client_capabilities_v1() -> ClientCapabilitiesV1:
     """Public client contract; deliberately excludes tokens and internal URLs."""
@@ -111,11 +195,14 @@ def client_capabilities_v1() -> ClientCapabilitiesV1:
         search=ClientFeatureCapability(available=True, mode="semantic"),
         chat=ClientFeatureCapability(available=True, mode=settings.chat_mode, asynchronous=True),
         legacy_fallback_available=settings.legacy_client_api_enabled,
+        ownership_authentication=settings.auth_mode,
     )
 
 
 @app.get("/api/v1/subjects/{subject_id}")
-def open_subject_v1(subject_id: UUID) -> RedirectResponse:
+def open_subject_v1(
+    subject_id: UUID, principal: Principal = Depends(current_principal)
+) -> RedirectResponse:
     """Open the authoritative Event Intelligence review without proxying its logic."""
     target = f"{settings.event_intelligence_public_url.rstrip('/')}/api/v1/events/{subject_id}"
     return RedirectResponse(url=target, status_code=307)
@@ -201,8 +288,10 @@ def summary_v1(
     site_id: str = "default",
     camera_id: str | None = None,
     db: Session = Depends(get_db),
+    principal: Principal = Depends(current_principal),
 ) -> SummaryV1Response:
     """Read the active precomputed Summary; this endpoint never generates inline."""
+    principal.require("reader", "user", "admin", site_id=site_id)
     filters = [
         Summary.summary_type == "daily",
         Summary.local_date == local_date,
@@ -226,9 +315,12 @@ def summary_v1(
 
 @app.post("/api/v1/summaries/rebuild", response_model=SummaryJobV1Response)
 def rebuild_summary_v1(
-    body: SummaryRebuildV1Request, db: Session = Depends(get_db)
+    body: SummaryRebuildV1Request,
+    db: Session = Depends(get_db),
+    principal: Principal = Depends(current_principal),
 ) -> SummaryJobV1Response:
     """Queue generation only; LLM and Event Intelligence calls remain worker-only."""
+    principal.require("user", "admin", site_id=body.site_id)
     try:
         local_day_bounds(body.local_date, body.timezone)
     except ValueError as error:
@@ -260,11 +352,14 @@ def rebuild_summary_v1(
 
 @app.get("/api/v1/summaries/jobs/{summary_id}", response_model=SummaryJobV1Response)
 def summary_job_v1(
-    summary_id: UUID, db: Session = Depends(get_db)
+    summary_id: UUID,
+    db: Session = Depends(get_db),
+    principal: Principal = Depends(current_principal),
 ) -> SummaryJobV1Response:
     summary = db.get(Summary, summary_id)
     if summary is None:
         raise HTTPException(status_code=404, detail="summary job not found")
+    principal.require("reader", "user", "admin", site_id=summary.site_id)
     return SummaryJobV1Response(id=summary.id, status=summary.status)
 
 
@@ -290,8 +385,11 @@ def search(body: SearchRequest, db: Session = Depends(get_db)) -> SearchResponse
 
 @app.post("/api/v1/search", response_model=SemanticSearchResponse)
 def semantic_search_v1(
-    body: SemanticSearchRequest, db: Session = Depends(get_db)
+    body: SemanticSearchRequest,
+    db: Session = Depends(get_db),
+    principal: Principal = Depends(current_principal),
 ) -> SemanticSearchResponse:
+    principal.require("reader", "user", "admin", site_id=body.site)
     try:
         query_embedding = embed_query(body.query)
     except QueryEmbeddingUnavailable as error:
@@ -350,7 +448,11 @@ def semantic_search_v1(
 
 
 @app.get("/api/v1/search/evidence/{job_id}/{evidence_id}")
-async def semantic_search_evidence(job_id: str, evidence_id: str) -> Response:
+async def semantic_search_evidence(
+    job_id: str,
+    evidence_id: str,
+    principal: Principal = Depends(current_principal),
+) -> Response:
     """Open Evidence through the authoritative, job-scoped public boundary."""
     from uuid import UUID
 
@@ -411,13 +513,19 @@ def chat(body: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
 
 @app.post("/api/v1/chat/jobs", response_model=ChatJobV1Out, status_code=202)
 def create_chat_job_v1(
-    body: ChatV1Request, db: Session = Depends(get_db)
+    body: ChatV1Request,
+    db: Session = Depends(get_db),
+    principal: Principal = Depends(current_principal),
 ) -> ChatJobV1Out:
     """Persist and queue only; retrieval and LLM execution are worker-only."""
+    principal.require("user", "admin", site_id=body.site_id)
+    if settings.auth_mode != "development" and body.owner_id not in {None, principal.owner_id}:
+        raise HTTPException(status_code=403, detail="owner is bound to authenticated identity")
+    owner_id = principal.owner_id if settings.auth_mode != "development" else (body.owner_id or principal.owner_id)
     try:
         job = create_chat_job(
             db,
-            owner_id=body.owner_id,
+            owner_id=owner_id,
             question=body.message,
             conversation_id=body.conversation_id,
             camera=body.camera,
@@ -436,10 +544,15 @@ def create_chat_job_v1(
 
 @app.get("/api/v1/chat/jobs/{job_id}", response_model=ChatJobV1Out)
 def get_chat_job_v1(
-    job_id: UUID, owner_id: str, db: Session = Depends(get_db)
+    job_id: UUID,
+    owner_id: str | None = None,
+    db: Session = Depends(get_db),
+    principal: Principal = Depends(current_principal),
 ) -> ChatJobV1Out:
+    principal.require("reader", "user", "admin")
+    effective_owner = owner_id if settings.auth_mode == "development" else principal.owner_id
     job = db.get(ChatJob, job_id)
-    if job is None or job.owner_id != owner_id:
+    if job is None or job.owner_id != effective_owner:
         raise HTTPException(status_code=404, detail="chat job not found")
     answer = (
         db.get(ChatMessage, job.assistant_message_id)
@@ -459,24 +572,29 @@ def get_chat_job_v1(
     "/api/v1/chat/conversations/{conversation_id}", response_model=ConversationV1Out
 )
 def get_conversation_v1(
-    conversation_id: int, owner_id: str, db: Session = Depends(get_db)
+    conversation_id: int,
+    owner_id: str | None = None,
+    db: Session = Depends(get_db),
+    principal: Principal = Depends(current_principal),
 ) -> ConversationV1Out:
+    principal.require("reader", "user", "admin")
+    effective_owner = owner_id if settings.auth_mode == "development" else principal.owner_id
     conversation = db.get(Conversation, conversation_id)
-    if conversation is None or conversation.user_id != owner_id:
+    if conversation is None or conversation.user_id != effective_owner:
         raise HTTPException(status_code=404, detail="conversation not found")
     messages = list(
         db.scalars(
             select(ChatMessage)
             .where(
                 ChatMessage.conversation_id == conversation_id,
-                ChatMessage.owner_id == owner_id,
+                ChatMessage.owner_id == effective_owner,
             )
             .order_by(ChatMessage.created_at, ChatMessage.id)
         ).all()
     )
     return ConversationV1Out(
         id=conversation.id,
-        owner_id=owner_id,
+        owner_id=effective_owner,
         title=conversation.title,
         messages=[ChatMessageV1Out.model_validate(item) for item in messages],
     )
