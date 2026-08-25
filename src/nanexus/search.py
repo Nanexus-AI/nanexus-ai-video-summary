@@ -70,7 +70,7 @@ def search_events(
 
     events = [row[0] for row in rows]
     # cosine_distance -> similarity score roughly 1 - distance (pgvector)
-    scores = [max(0.0, 1.0 - float(row[1])) for row in rows]
+    scores: list[float | None] = [max(0.0, 1.0 - float(row[1])) for row in rows]
     return events, scores, "openclip-pgvector"
 
 

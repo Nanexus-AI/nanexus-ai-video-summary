@@ -46,11 +46,17 @@ def main() -> None:
     signal.signal(signal.SIGTERM, _stop)
     signal.signal(signal.SIGINT, _stop)
     queue = AIQueue()
+    recovered = queue.recover_chats()
+    if recovered:
+        logger.warning("recovered %d in-flight chat jobs", recovered)
     while _running:
         queue.heartbeat("chat")
         item = queue.dequeue_chat(timeout=2)
         if item:
-            process(item.job_id)
+            try:
+                process(item.job_id)
+            finally:
+                queue.acknowledge_chat(item)
 
 
 if __name__ == "__main__":

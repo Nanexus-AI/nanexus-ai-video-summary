@@ -79,21 +79,58 @@ class AIQueue:
         self._client.lpush(self._settings.summary_queue_key, job.to_json())
 
     def dequeue_summary(self, timeout: int = 5) -> SummaryJob | None:
-        item = self._client.brpop(self._settings.summary_queue_key, timeout=timeout)
-        if not item:
+        payload = self._client.brpoplpush(
+            self._settings.summary_queue_key,
+            f"{self._settings.summary_queue_key}:processing",
+            timeout=timeout,
+        )
+        if not payload:
             return None
-        _, payload = item
         return SummaryJob.from_json(payload)
+
+    def acknowledge_summary(self, job: SummaryJob) -> None:
+        key = f"{self._settings.summary_queue_key}:processing"
+        self._acknowledge(key, job, SummaryJob.from_json)
+
+    def recover_summaries(self) -> int:
+        return self._recover(
+            f"{self._settings.summary_queue_key}:processing", self._settings.summary_queue_key
+        )
 
     def enqueue_chat(self, job: ChatQueueJob) -> None:
         self._client.lpush(self._settings.chat_queue_key, job.to_json())
 
     def dequeue_chat(self, timeout: int = 5) -> ChatQueueJob | None:
-        item = self._client.brpop(self._settings.chat_queue_key, timeout=timeout)
-        if not item:
+        payload = self._client.brpoplpush(
+            self._settings.chat_queue_key,
+            f"{self._settings.chat_queue_key}:processing",
+            timeout=timeout,
+        )
+        if not payload:
             return None
-        _, payload = item
         return ChatQueueJob.from_json(payload)
+
+    def acknowledge_chat(self, job: ChatQueueJob) -> None:
+        key = f"{self._settings.chat_queue_key}:processing"
+        self._acknowledge(key, job, ChatQueueJob.from_json)
+
+    def recover_chats(self) -> int:
+        return self._recover(
+            f"{self._settings.chat_queue_key}:processing", self._settings.chat_queue_key
+        )
+
+    def _recover(self, processing_key: str, queue_key: str) -> int:
+        recovered = 0
+        while self._client.rpoplpush(processing_key, queue_key):
+            recovered += 1
+        return recovered
+
+    def _acknowledge(self, key: str, job: Any, parser: Any) -> None:
+        for payload in self._client.lrange(key, 0, -1):
+            if parser(payload) == job:
+                serialized = payload.decode() if isinstance(payload, bytes) else payload
+                self._client.lrem(key, 1, serialized)
+                return
 
     def mark_processed(self, frigate_id: str) -> bool:
         """Return True if this frigate_id was newly marked (not a duplicate)."""

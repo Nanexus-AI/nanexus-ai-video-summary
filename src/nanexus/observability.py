@@ -35,7 +35,7 @@ def snapshot(db: Session, queue: AIQueue | None = None) -> dict[str, Any]:
         "summary_freshness_seconds": freshness,
         "worker_heartbeats": {
             name: client.get(f"nanexus:heartbeat:{name}")
-            for name in ("embedding", "summary", "chat")
+            for name in ("embedding", "enrichment", "summary", "chat")
         },
     }
 

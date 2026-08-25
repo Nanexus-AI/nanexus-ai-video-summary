@@ -177,6 +177,9 @@ def main() -> None:
         return
 
     queue = AIQueue()
+    recovered = queue.recover_summaries()
+    if recovered:
+        logger.warning("recovered %d in-flight summary jobs", recovered)
     logger.info(
         "summary worker started mode=%s schedule=%02d:%02d %s",
         settings.summary_mode,
@@ -190,7 +193,10 @@ def main() -> None:
         queue.heartbeat("summary")
         job = queue.dequeue_summary(timeout=2)
         if job is not None:
-            process_job(job)
+            try:
+                process_job(job)
+            finally:
+                queue.acknowledge_summary(job)
 
         now_ts = time.time()
         if now_ts - last_schedule_check >= 20:

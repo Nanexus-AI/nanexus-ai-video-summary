@@ -54,8 +54,34 @@ class EmbeddingQueue:
         self.client.lpush(self.settings.embedding_queue_key, job.to_json())
 
     def dequeue(self, timeout: int = 5):
-        item = self.client.brpop(self.settings.embedding_queue_key, timeout=timeout)
-        return EmbeddingJob.from_json(item[1]) if item else None
+        try:
+            payload = self.client.brpoplpush(
+                self.settings.embedding_queue_key,
+                self.processing_key,
+                timeout=timeout,
+            )
+        except redis.TimeoutError:
+            # redis-py 8 can surface an empty blocking-pop socket timeout as an
+            # exception. An idle queue is not a worker failure.
+            return None
+        return EmbeddingJob.from_json(payload) if payload else None
+
+    @property
+    def processing_key(self) -> str:
+        return f"{self.settings.embedding_queue_key}:processing"
+
+    def acknowledge(self, job: EmbeddingJob) -> None:
+        for payload in self.client.lrange(self.processing_key, 0, -1):
+            if EmbeddingJob.from_json(payload) == job:
+                serialized = payload.decode() if isinstance(payload, bytes) else payload
+                self.client.lrem(self.processing_key, 1, serialized)
+                return
+
+    def recover_in_flight(self) -> int:
+        recovered = 0
+        while self.client.rpoplpush(self.processing_key, self.settings.embedding_queue_key):
+            recovered += 1
+        return recovered
 
     def retry_or_dead_letter(self, job: EmbeddingJob, reason: str) -> bool:
         next_job = EmbeddingJob(**{**asdict(job), "attempt": job.attempt + 1})
@@ -115,12 +141,15 @@ def persist_embedding(db: Session, job: EmbeddingJob) -> EmbeddingRecord:
         db.commit()
     except IntegrityError:
         db.rollback()
-        return db.scalar(
+        existing = db.scalar(
             select(EmbeddingRecord).where(
                 EmbeddingRecord.source_claim_id == UUID(job.source_claim_id),
                 EmbeddingRecord.model_version == job.model_version,
             )
         )
+        if existing is None:
+            raise RuntimeError("embedding uniqueness conflict did not resolve to an existing record")
+        return existing
     db.refresh(record)
     return record
 

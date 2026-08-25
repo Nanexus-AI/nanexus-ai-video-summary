@@ -46,7 +46,7 @@ ignore = ["E402", "E501"]
 
 [tool.mypy]
 python_version = "3.12"
-packages = ["nanexus"]
+files = ["src", "services"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

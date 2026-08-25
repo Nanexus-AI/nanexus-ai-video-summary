@@ -208,7 +208,6 @@ class ChatMessageV1Out(BaseModel):
     created_at: datetime
 
     @computed_field
-    @property
     def citations(self) -> list[dict[str, str]]:
         return [
             {"subject_id": subject_id, "review_path": f"/api/v1/events/{subject_id}"}

@@ -5,6 +5,8 @@
 
 阶段 9 部署边界：生产模式 fail closed，并从可信身份绑定 owner/site/role；服务身份与用户身份分离。启动验证 Event Intelligence capability，迁移只由 Alembic job 执行。readiness 区分 worker/model/基座降级，指标仅使用有界标签。一体/外接基座 Compose 均保持 Video Summary → Event Intelligence 单向 HTTP v1 依赖，旧链路继续保留回退。
 
+阶段 9 之后采用顺序 Gate：先完成部署 Closeout，再做只读影子对照；随后才可单独授权 MQTT Cutover Rehearsal 和 Legacy Retirement；License/SBOM 可提前审计，但开源发布始终需要最后的人工授权。任何 Gate 的完成都不自动授权下一 Gate。
+
 阶段 8 客户端边界：Web/Android 默认只调用 Video Summary `/api/v1` 产品契约。Summary、Search 与异步 Chat 的关联对象均为 Event Intelligence Subject UUID，并经 Video Summary 的稳定 Subject Link 打开基座公开 Review/Evidence 入口。客户端不持有基座内部 URL/Token、不直连 Frigate、不复制 Review/Evidence 规则。Android Debug 可配置 LAN HTTP；Release 默认只允许 HTTPS。开发 `owner_id` 仅用于数据隔离；生产 ownership 来自阶段 9 的可信身份绑定。
 
 ---

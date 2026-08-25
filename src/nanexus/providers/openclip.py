@@ -97,7 +97,7 @@ class OpenCLIPProvider(Provider):
             if self._model is not None:
                 return
             try:
-                import open_clip
+                import open_clip  # type: ignore[import-untyped]
                 import torch
 
                 device = self.requested_device

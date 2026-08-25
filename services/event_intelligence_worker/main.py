@@ -22,6 +22,7 @@ from nanexus.event_intelligence_contracts.enrichment_result import (
 from nanexus.indexing import EmbeddingJob, EmbeddingQueue, content_hash
 from nanexus.providers import Provider, ProviderAbstained, ProviderError, create_provider
 from nanexus.providers.media import validate_image_evidence
+from nanexus.queue import AIQueue
 
 logger = logging.getLogger("event_intelligence_worker")
 
@@ -93,7 +94,7 @@ async def process_once(client: EventIntelligenceClient, provider: Provider | Non
     completed_at = datetime.now(UTC)
     identity = provider.identity
     evidence_ids = (evidence_ref.evidence_id,)
-    claims = []
+    claims: list[CaptionClaim | TagsClaim] = []
     requested = {item.output_type.value for item in job.requested_outputs}
     if "caption" in requested:
         claims.append(
@@ -140,6 +141,8 @@ async def process_once(client: EventIntelligenceClient, provider: Provider | Non
         (index for index, claim in enumerate(claims) if claim.claim_type == "caption"), None
     )
     if caption_index is not None and len(receipt.claim_ids) > caption_index:
+        caption_claim = claims[caption_index]
+        assert isinstance(caption_claim, CaptionClaim)
         EmbeddingQueue().enqueue(
             EmbeddingJob(
                 subject_type=job.subject_type.value,
@@ -153,7 +156,7 @@ async def process_once(client: EventIntelligenceClient, provider: Provider | Non
                 provider=identity.provider,
                 model=identity.model,
                 model_version=identity.model_version,
-                content_hash=content_hash(claims[caption_index].text),
+                content_hash=content_hash(caption_claim.text),
                 camera=subject.camera,
                 site=subject.site,
                 occurred_at=subject.occurred_at.isoformat() if subject.occurred_at else None,
@@ -182,6 +185,7 @@ async def run() -> None:
     settings = get_settings()
     provider = create_provider(settings)
     await provider.warmup(timeout_seconds=settings.model_timeout_seconds)
+    health = AIQueue()
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for name in (signal.SIGINT, signal.SIGTERM):
@@ -192,6 +196,7 @@ async def run() -> None:
         timeout_seconds=settings.event_intelligence_timeout_seconds,
     ) as client:
         while not stop.is_set():
+            health.heartbeat("enrichment")
             try:
                 processed = await process_once(client, provider)
                 if not processed:

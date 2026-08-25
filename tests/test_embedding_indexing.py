@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import redis as redis_module
+
 from nanexus.config import get_settings
 from nanexus.indexing import EmbeddingJob, EmbeddingQueue
 
@@ -15,6 +17,32 @@ class FakeRedis:
     def brpop(self, key, timeout=0):
         values = self.lists.get(key, [])
         return (key, values.pop()) if values else None
+
+    def brpoplpush(self, source, destination, timeout=0):
+        values = self.lists.get(source, [])
+        if not values:
+            return None
+        payload = values.pop()
+        self.lpush(destination, payload)
+        return payload
+
+    def rpoplpush(self, source, destination):
+        return self.brpoplpush(source, destination)
+
+    def lrem(self, key, count, value):
+        values = self.lists.get(key, [])
+        if value not in values:
+            return 0
+        values.remove(value)
+        return 1
+
+    def lrange(self, key, start, stop):
+        return list(self.lists.get(key, []))
+
+
+class TimeoutRedis(FakeRedis):
+    def brpoplpush(self, source, destination, timeout=0):
+        raise redis_module.TimeoutError("idle blocking pop")
 
 
 def job(attempt=0):
@@ -47,6 +75,23 @@ def test_embedding_queue_retries_then_dead_letters(monkeypatch):
     payload = json.loads(redis.lists[queue.settings.embedding_dlq_key][0])
     assert payload["reason"] == "database" and payload["job"]["attempt"] == 2
     get_settings.cache_clear()
+
+
+def test_idle_socket_timeout_is_not_a_worker_failure():
+    assert EmbeddingQueue(TimeoutRedis()).dequeue() is None
+
+
+def test_in_flight_embedding_is_recovered_then_acknowledged():
+    client = FakeRedis()
+    queue = EmbeddingQueue(client)
+    queue.enqueue(job())
+    claimed = queue.dequeue(timeout=0)
+    assert claimed == job()
+    assert client.lists[queue.settings.embedding_queue_key] == []
+    assert queue.recover_in_flight() == 1
+    claimed = queue.dequeue(timeout=0)
+    queue.acknowledge(claimed)
+    assert client.lists[queue.processing_key] == []
 
 
 def test_migration_has_dimension_vector_and_filter_indexes():

@@ -67,7 +67,7 @@ class VisionPipeline:
         self._model = None
         self._preprocess = None
         self._tokenizer = None
-        self._device = None
+        self._device: str | None = None
         self._loaded = False
 
     @property
@@ -86,7 +86,7 @@ class VisionPipeline:
             self._loaded = True
 
     def _load_openclip(self) -> None:
-        import open_clip
+        import open_clip  # type: ignore[import-untyped]
         import torch
 
         settings = self._settings
@@ -137,9 +137,9 @@ class VisionPipeline:
     ) -> VisionResult:
         if self.mode == "stub" or image_bytes is None:
             seed = f"{camera}:{label}:{sub_label}:{len(image_bytes or b'')}"
-            tags = [label]
+            stub_tags = [label]
             if sub_label:
-                tags.append(sub_label)
+                stub_tags.append(sub_label)
             if image_bytes is None and self.mode != "stub":
                 caption = f"{stub_caption(camera, label, sub_label)} (snapshot missing)"
                 model = "stub-fallback"
@@ -149,7 +149,7 @@ class VisionPipeline:
             return VisionResult(
                 caption=caption,
                 embedding=stub_embedding(seed, self._settings.embedding_dim),
-                tags=tags,
+                tags=stub_tags,
                 model=model,
             )
 

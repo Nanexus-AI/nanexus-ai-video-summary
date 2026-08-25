@@ -12,6 +12,8 @@ No commit, publish, deployment, shadow validation or retirement was performed.
 
 Added production fail-closed owner/site/role authorization, HTTPS/CORS/security headers, Android Keystore token storage, frozen Python 3.12 dependencies, integrated/external Compose modes, capability startup checks, operational health/metrics, and Stub/CPU/GPU/Cloud profiles. Development `owner_id` remains isolation-only; production derives ownership from authenticated identity. Legacy API/DTO/client/data/Compose rollback remains. Full Video Summary Mypy still reports nine pre-existing errors and is not reported as passing. No Shadow Validation or retirement began.
 
+Next work is explicitly split into four gates: (1) Stage 9 Closeout—previous-version upgrade, real CPU OpenCLIP, durable kill/restart, clean Stub Demo, Secret/License/SBOM, independent builds and Mypy disposition; (2) Shadow Validation with frozen comparison thresholds; (3) separately authorized MQTT cutover rehearsal and legacy retirement/data handling; (4) open-source release readiness and human publication authorization. Completing one gate does not authorize the next.
+
 ## 2026-08-21: BASELINE-001～005 save legacy-system baseline
 
 ### Goal

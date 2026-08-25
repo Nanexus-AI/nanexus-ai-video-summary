@@ -232,7 +232,10 @@ def timeline(
             .limit(limit)
         ).all()
     )
-    return TimelineResponse(total=total, items=items)
+    return TimelineResponse(
+        total=total,
+        items=[EventOut.model_validate(item) for item in items],
+    )
 
 
 @app.get("/summary/today", response_model=SummaryResponse)

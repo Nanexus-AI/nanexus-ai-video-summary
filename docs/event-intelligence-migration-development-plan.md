@@ -1141,11 +1141,34 @@ CLIENT-WEB-001～003 与 CLIENT-ANDROID-001～006 已完成。两个客户端默
 - Worker 故障不影响基座核心事件链路；
 - 运维人员可观察 backlog、错误和 DLQ。
 
+### 15.4 实施状态与下一步 Gate（2026-08-24）
+
+RELEASE-001～006 的代码和主要部署基座已经实现：Python 3.12/frozen lock、两种 Compose 模式、独立 Migration Job、生产 fail-closed 身份边界、Capability 拒绝、Android Keystore/Release HTTPS、健康状态和有界指标均已落地。Fresh install、重复 upgrade、一体/外接基座启动、Stub、Web/Android 构建及固定 model/worker 故障测试已有验收记录，见 [`stage9-acceptance.md`](./stage9-acceptance.md)。
+
+阶段 9 尚不得声明完整退出，必须先完成一个独立的 **Stage 9 Closeout Gate**：
+
+1. 使用明确保存的前一版本数据库快照执行真实 upgrade，而不只在当前 head 上重复运行 migration；
+2. 真实运行 CPU OpenCLIP，记录权重来源、缓存、SHA-256、许可证、启动时间、资源占用和端到端结果；
+3. 扩展 Worker Kill/Restart，证明 in-flight Job 不丢、Retry/DLQ/Heartbeat 恢复且基座事件链路不受影响；
+4. 在无云 Key、无 GPU 的干净环境完成一条命令 Stub Demo；
+5. 使用正式工具执行 Secret Scan、License Audit 和 SBOM 生成；
+6. 分别在无对方未提交源码依赖的环境构建两个仓库；
+7. 处理或逐项批准 Video Summary 全仓 Mypy 的九项既有债务；不得将失败命令报告为通过。
+
+Closeout Gate 只做部署和发行验证，不运行影子流量、不关闭旧 Listener/Worker、不删除旧 API/DTO/数据，也不执行开源发布。
+
 ## 16. 阶段 10：旧链路退役与数据处理
 
 ### 16.1 目标
 
 只有在新链路完成对照验收后，才停止重复基础设施和旧数据写入。
+
+阶段 10 必须拆成顺序 Gate，不得把影子验证、切换和删除合并执行：
+
+1. **Shadow Validation**：新旧链路并行、只比较、无重复通知或收费副作用；
+2. **Cutover Rehearsal**：在可回退窗口内关闭旧 MQTT Listener，验证无事件缺口后恢复或确认切换；
+3. **Legacy Retirement**：只有观察期和人工 Gate 通过后，才依次停旧 Worker/API/写入；
+4. **Data Disposition**：旧数据归档、迁移或删除必须另行记录和授权。
 
 ### 16.2 退役顺序
 
@@ -1196,6 +1219,10 @@ CLIENT-WEB-001～003 与 CLIENT-ANDROID-001～006 已完成。两个客户端默
 - 比较事件覆盖、Caption、Search、Summary；
 - 记录差异；
 - 不重复发送通知或产生收费副作用。
+
+影子期至少比较 Event/Subject 数量与 UUID、时间覆盖、Caption/Claim、Search 命中、Summary、Chat 引用、处理延迟、Retry、DLQ 和不可解释差异。观察窗口、容许误差和阻塞阈值必须在运行前冻结。
+
+完成影子对照并不自动授权 RETIRE-001。关闭旧 MQTT Listener 必须作为单独的 Cutover Rehearsal 执行，记录切换前后游标/计数、事件缺口、重复、恢复步骤和观察窗口。Android/Web 的正常用户路径必须通过请求捕获证明不再调用旧 API；旧 DTO/API/页面仍可保留为显式 rollback-only，直至退役 Gate 获得授权。
 
 ### 16.4 退出条件
 
@@ -1268,6 +1295,8 @@ Video Summary 至少提供：
 - 干净安装；
 - 版本映射；
 - 人工发布授权。
+
+OSS Gate 晚于 Stage 9 Closeout、Shadow Validation 和 Cutover/Retirement 决策。License/SBOM 与 Secret Scan 可以提前生成，但不得因生成这些产物而自动创建外部仓库、Tag、Release、公开镜像或上传模型权重。
 
 ### 17.3 退出条件
 
@@ -1476,10 +1505,12 @@ OPEN-SOURCE RELEASE GATE
 
 ### 批次 G：切换与开源
 
-1. 影子验证；
-2. RETIRE-001～006；
-3. OSS-001～005；
-4. 独立发布授权。
+1. Stage 9 Closeout Gate；
+2. 影子验证及量化对照；
+3. Cutover Rehearsal（含旧 MQTT Listener 无缺口验证）；
+4. RETIRE-001～006；
+5. OSS-001～005；
+6. 独立发布授权。
 
 ## 23. 每个任务的完成定义
 

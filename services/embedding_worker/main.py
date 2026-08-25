@@ -18,15 +18,21 @@ def process_once(queue=None, session_factory=SessionLocal):
     except Exception as error:
         logger.exception("embedding index failed subject=%s", job.subject_id)
         queue.retry_or_dead_letter(job, type(error).__name__)
+    finally:
+        queue.acknowledge(job)
     return True
 
 
 def main():
     logging.basicConfig(level=logging.INFO)
     health = AIQueue()
+    queue = EmbeddingQueue()
+    recovered = queue.recover_in_flight()
+    if recovered:
+        logger.warning("recovered %d in-flight embedding jobs", recovered)
     while True:
         health.heartbeat("embedding")
-        process_once()
+        process_once(queue)
 
 
 if __name__ == "__main__":
