@@ -4,7 +4,17 @@ import sys
 import pytest
 
 from nanexus.providers.base import ProviderAbstained, ProviderError, ProviderHealth
-from nanexus.providers.openclip import LABEL_SET_VERSION, OpenCLIPProvider
+from nanexus.providers.openclip import (
+    LABEL_SET_VERSION,
+    OpenCLIPProvider,
+    validate_activation_config,
+)
+
+
+def test_quickgelu_model_and_pretrained_must_match() -> None:
+    validate_activation_config({"quick_gelu": True}, {"quick_gelu": True})
+    with pytest.raises(ValueError, match="QuickGELU mismatch"):
+        validate_activation_config({}, {"quick_gelu": True})
 
 
 def test_openclip_is_lazy_and_identifies_zero_shot_label_set() -> None:

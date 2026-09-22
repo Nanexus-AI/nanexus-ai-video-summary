@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     # stub | openclip
     ai_mode: str = "openclip"
     ai_device: str = "auto"
-    openclip_model: str = "ViT-B-32"
+    openclip_model: str = "ViT-B-32-quickgelu"
     openclip_pretrained: str = "openai"
     snapshots_dir: str = "data/snapshots"
     public_base_url: str = "http://127.0.0.1:8000"

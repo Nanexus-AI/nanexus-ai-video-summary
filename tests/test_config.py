@@ -12,6 +12,8 @@ def test_current_configuration_defaults_are_stable(monkeypatch):
     assert settings.frigate_token == ""
     assert settings.llm_api_key == ""
     assert settings.model_provider == "stub"
+    assert settings.openclip_model == "ViT-B-32-quickgelu"
+    assert settings.openclip_pretrained == "openai"
     assert settings.legacy_api_model_inference_enabled is False
     assert settings.summary_site_id == "default"
     assert settings.summary_rule_version == "rule-v1"

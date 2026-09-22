@@ -44,6 +44,19 @@ ZERO_SHOT_LABELS = (
 T = TypeVar("T")
 
 
+def validate_activation_config(
+    model_config: dict[str, Any], pretrained_config: dict[str, Any]
+) -> None:
+    """Reject an audited weight/model activation mismatch before loading weights."""
+    model_quick_gelu = bool(model_config.get("quick_gelu", False))
+    pretrained_quick_gelu = bool(pretrained_config.get("quick_gelu", False))
+    if model_quick_gelu != pretrained_quick_gelu:
+        raise ValueError(
+            "OpenCLIP model/pretrained QuickGELU mismatch: "
+            f"model={model_quick_gelu} pretrained={pretrained_quick_gelu}"
+        )
+
+
 class OpenCLIPProvider(Provider):
     """Image/text embeddings and zero-shot labels, not a caption/VLM model."""
 
@@ -100,6 +113,13 @@ class OpenCLIPProvider(Provider):
                 import open_clip  # type: ignore[import-untyped]
                 import torch
 
+                model_config = open_clip.get_model_config(self.model_name)
+                pretrained_config = open_clip.get_pretrained_cfg(
+                    self.model_name, self.pretrained
+                )
+                if model_config is None or not pretrained_config:
+                    raise ValueError("OpenCLIP model or pretrained configuration is unavailable")
+                validate_activation_config(model_config, pretrained_config)
                 device = self.requested_device
                 if device == "auto":
                     device = "cuda" if torch.cuda.is_available() else "cpu"

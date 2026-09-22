@@ -123,8 +123,10 @@ services:
     environment:
       MODEL_PROVIDER: ${MODEL_PROVIDER:-stub}
       AI_DEVICE: ${AI_DEVICE:-cpu}
-      OPENCLIP_MODEL: ${OPENCLIP_MODEL:-ViT-B-32}
+      OPENCLIP_MODEL: ${OPENCLIP_MODEL:-ViT-B-32-quickgelu}
       OPENCLIP_PRETRAINED: ${OPENCLIP_PRETRAINED:-openai}
+      HF_HOME: /root/.cache/huggingface
+    volumes: [model-cache:/root/.cache]
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/health')"]
       interval: 10s
@@ -143,6 +145,7 @@ services:
   enrichment-worker:
     <<: *video-service
     command: [python, -m, services.event_intelligence_worker.main]
+    volumes: [model-cache:/root/.cache]
     depends_on:
       video-migrate: {condition: service_completed_successfully}
       redis: {condition: service_healthy}
@@ -184,3 +187,4 @@ volumes:
   event-db-data:
   video-db-data:
   redis-data:
+  model-cache:
