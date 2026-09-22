@@ -1,129 +1,351 @@
 # Nanexus AI Video Summary
 
-Frigate 之上的 AI 视频摘要 / 时间线 / 语义检索 / 问答（当前 **M2**）。
+Nanexus AI Video Summary turns camera and video-security events into searchable, summarizable, and traceable information.
 
-- 架构设计：[`docs/architecture.md`](docs/architecture.md)
-- M0 总结：[`docs/m0-implementation.md`](docs/m0-implementation.md)
-- M1 总结：[`docs/m1-implementation.md`](docs/m1-implementation.md)
-- M2 总结：[`docs/m2-implementation.md`](docs/m2-implementation.md)
-- Android 开发机环境：[`docs/android-dev-machine.md`](docs/android-dev-machine.md)
-- Android Compose App：[`android/`](android/)（见下方「Android App」）
+Its goal is to move beyond traditional monitoring workflows centered on raw video timelines, playback, and isolated alerts. It organizes normalized events into daily summaries, semantic search results, and cited conversational answers, while preserving links back to the underlying subjects and evidence. This reduces the amount of manual video review needed to understand what actually happened.
 
-## 当前能力
+The application is designed to sit above camera, NVR, and VMS systems so higher-level clients can work with normalized events instead of being tied directly to one recorder, camera vendor, or proprietary platform API.
 
-- Docker：PostgreSQL（pgvector）+ Redis + Mosquitto
-- `mqtt_listener`：`frigate/events` → 落库 → Redis 队列
-- `ai_worker`：snapshot → OpenCLIP caption/embedding
-- `summary_worker`：日终/队列预计算摘要（rule 或 LLM）
-- API：
-  - `GET /timeline` / `GET /summary/today`
-  - `POST /search` / `POST /chat`
-  - `GET /events/{id}/snapshot`
-  - `GET /api/v1/summaries/{local_date}`（只读基座化预计算摘要）
-  - `POST /api/v1/summaries/rebuild` / `GET /api/v1/summaries/jobs/{id}`
-- 真实 Frigate：改 `.env` 后用 `scripts/import_frigate_events.py` 回填
+Video Summary is built on **[Nanexus Event Intelligence](https://github.com/Nanexus-AI/nanexus-event-intelligence)**, a separate vendor-neutral and platform-neutral event-processing middleware project.
 
-## 快速开始
+Video Summary consumes Event Intelligence through its public HTTP/v1 contracts and owns the application API, retrieval and summary data, background workers, and Web and Android client experiences.
 
-### 1. 基础设施
+Event Intelligence also has value independently of Video Summary: its normalized event model and stable public contracts can support other higher-level applications without requiring each application to integrate separately with individual camera, NVR, or VMS platforms.
 
-```bash
+This repository contains verified backend, Web, Android, deterministic Stub, Linux CPU OpenCLIP, and containerized GPU/CUDA OpenCLIP paths.
+
+Legacy compatibility paths are still retained. The Web and Android clients are currently **functional reference interfaces**, not finished productized UI/UX.
+
+The project should not be treated as a turnkey production system or a complete public-internet deployment.
+
+## Application preview
+
+The current Web interface demonstrates the three main application workflows: daily event summaries, semantic search, and grounded chat over stored event data.
+
+### Summary
+
+The Summary view turns normalized event activity into a daily operational overview with label counts, highlights, and traceable source subjects.
+
+![Nanexus AI Video Summary — Summary](docs/images/video-summary-summary-synthetic.png)
+
+*Shown with fully synthetic demo data.*
+
+### Semantic Search
+
+The Search view retrieves semantically related events using persisted embeddings and pgvector-backed cosine search, while preserving subject metadata and related-event links.
+
+![Nanexus AI Video Summary — Search](docs/images/video-summary-search-synthetic.png)
+
+*Shown with fully synthetic demo data.*
+
+### Chat
+
+The Chat view answers questions using stored summaries and semantic search results. In the current reference implementation, extractive fallback mode remains available when no external LLM is configured.
+
+![Nanexus AI Video Summary — Chat](docs/images/video-summary-chat-synthetic.png)
+
+*Shown with fully synthetic demo data.*
+
+## Architecture
+
+```text
+Camera / NVR / VMS
+        |
+        v
+Nanexus Event Intelligence
+  vendor-neutral event processing and public HTTP/v1 contracts
+        |
+        v
+Nanexus AI Video Summary
+  ingestion consumers, retrieval, summaries, chat, application API
+        |
+        +--> Web
+        +--> Android
+        +--> Summary
+        +--> Search
+        +--> Chat                                                                                                                   Web and Android connect to the Video Summary API.
+```
+
+Video Summary should consume Event Intelligence through its versioned public boundary rather than importing its source, sharing its database, or reaching directly into a camera system.
+
+Frigate is an important current integration and compatibility path, but it is not the application's permanent architectural boundary.
+
+See the current architecture notes for more detail.
+
+Current capabilities
+
+Event processing: consumes versioned Event Intelligence events, evidence, enrichment jobs, and compatibility metadata through HTTP/v1 clients and workers. A legacy Frigate MQTT/import path remains available as a rollback and local-demo path.
+
+Search: provides legacy keyword fallback and the v1 Search API backed by persisted embeddings and worker-isolated model inference. Semantic retrieval uses stable subject UUIDs and can report degraded results.
+
+Summaries: precomputes versioned daily summaries from Event Intelligence data. Deterministic rule mode is the default; an optional budget-limited OpenAI-compatible LLM mode is available.
+
+Chat: provides asynchronous v1 chat jobs over stored Search and Summary data, with subject citations, ownership isolation, prompt-injection controls, and an extractive no-cloud fallback.
+
+Model processing: supports deterministic Stub processing and an isolated OpenCLIP provider for image/text embeddings and zero-shot labels. Model inference is kept out of the application API process.
+
+Clients: the React Web client and Jetpack Compose Android client negotiate v1 capabilities and expose Summary, Search, and asynchronous Chat. Android also retains the Timeline compatibility view.
+
+Compatibility: startup capability checks can reject incompatible Event Intelligence API, schema, processor-contract, or capability versions. Legacy APIs and clients remain available as explicit rollback paths during the initial release period.
+
+These capabilities have clean-candidate verification evidence, including:
+
+synthetic public-HTTP integration with Event Intelligence;
+
+real CPU OpenCLIP inference;
+
+real GPU/CUDA OpenCLIP inference;
+
+persisted embeddings and semantic retrieval;
+
+grounded Summary/Search/Chat application flows.
+
+Deployment-specific production hardening, packaging, and publication remain separate work.
+
+Safe local demo
+
+This small demo uses synthetic events, local snapshots, the deterministic Stub vision pipeline, and loopback-bound PostgreSQL, Redis, and MQTT.
+
+It does not require:
+
+a camera;
+
+model downloads;
+
+a GPU;
+
+a cloud API key.
+
+The demo exercises the retained local-compatible path.
+
+The full v1 integrated workflow uses Nanexus Event Intelligence and is documented separately as release guidance matures.
+
+Prerequisites:
+
+Python 3.12
+
+Docker
+
+Docker Compose
+
+Copy .env.example, select Stub mode, and start the local infrastructure:
+
 cp .env.example .env
+printf '\nAI_MODE=stub\n' >> .env
 docker compose up -d
-```
-
-### 2. Python 环境
-
-```bash
-python3 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
-pip install torch --index-url https://download.pytorch.org/whl/cpu
-pip install -e .
-```
+python -m pip install -e .
 
-### 3. 启动四个服务
+In three terminals, with the virtual environment activated, run:
 
-```bash
-source .venv/bin/activate
-uvicorn services.api.main:app --reload --host 0.0.0.0 --port 8000
 python -m services.mqtt_listener.main
 python -m services.ai_worker.main
-python -m services.summary_worker.main
-python -m services.chat_worker.main
-```
+uvicorn services.api.main:app --reload --host 127.0.0.1 --port 8000
 
-### 4. 演示与验收
+Then publish deterministic sample events and inspect the API:
 
-```bash
-python scripts/import_frigate_events.py -n 8 --force   # 或 seed_events.py
-python -m services.summary_worker.main --once
+source .venv/bin/activate
+python scripts/seed_events.py
+python scripts/build_summary.py
+curl -s http://127.0.0.1:8000/timeline | python -m json.tool
+curl -s http://127.0.0.1:8000/summary/today | python -m json.tool
 
-curl -s localhost:8000/summary/today | python -m json.tool
-curl -s localhost:8000/chat \
-  -H 'content-type: application/json' \
-  -d '{"message":"今天 front_yard 有什么？","camera":"front_yard"}' \
-  | python -m json.tool
-```
+Interactive API documentation is available at:
 
-API 文档：http://localhost:8000/docs
+http://127.0.0.1:8000/docs
 
-新 Chat v1 使用 `POST /api/v1/chat/jobs` 异步排队，并通过
-`GET /api/v1/chat/jobs/{job_id}?owner_id=...` 轮询；旧 `/chat` 在客户端迁移前保留作回退。
+Local credentials and anonymous MQTT configuration are development-only. Keep this demo on the local machine or a trusted internal network.
 
-## 真实 Frigate
+Nanexus Event Intelligence
 
-```bash
-FRIGATE_BASE_URL=http://192.168.1.80:5000
-MQTT_HOST=192.168.1.80
-MQTT_PORT=1883
-MQTT_TOPIC=frigate/events
-```
+Nanexus Event Intelligence is a separate repository and service.
 
-```bash
-python scripts/import_frigate_events.py -n 10 --force
-```
+Normal deployments point EVENT_INTELLIGENCE_URL at a compatible running Event Intelligence service and communicate only through its public, versioned HTTP contracts.
 
-## 可选 LLM
+A local Event Intelligence source checkout is not required for that mode.
 
-```bash
-SUMMARY_MODE=llm
-CHAT_MODE=llm
-LLM_API_KEY=sk-...
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_MODEL=gpt-4o-mini
-```
+For source-built integration and synthetic integration testing, the Compose files support an optional Event Intelligence checkout.
 
-未配置 Key 时默认 `rule` / `extractive`，仍可完整演示。
+By default they look for a sibling directory named:
 
-## Event Intelligence OpenCLIP Worker（迁移阶段 4）
+nanexus-event-intelligence
 
-跨仓 enrichment Worker 默认使用安全 Stub。启用本地 OpenCLIP 时使用独立 model overlay；API 服务不会加载模型：
+Set EVENT_INTELLIGENCE_SOURCE_DIR to use another layout:
 
-```bash
-PROCESSOR_API_TOKEN=replace-me docker-compose \
-  -f compose.slice.yaml -f compose.model.yaml up --build
-```
+EVENT_INTELLIGENCE_URL=http://event-intelligence:8000
+EVENT_INTELLIGENCE_SOURCE_DIR=../nanexus-event-intelligence
 
-关键配置为 `MODEL_PROVIDER=stub|openclip`、`AI_DEVICE=auto|cpu|cuda`、`OPENCLIP_MODEL` 和 `OPENCLIP_PRETRAINED`。Worker 只通过 Event Intelligence 的 job-scoped Evidence API 读取媒体，不接受 Frigate URL、Token 或本地文件路径。
+The source directory is a build/test input only.
 
-## Android App
+Video Summary runtime code does not:
 
-Jetpack Compose 客户端在 `android/`，对接同一套 API（Today / Timeline / Search / Settings）。
+import Event Intelligence source;
 
-```bash
-export JAVA_HOME=~/tools/jdk-17
-export ANDROID_HOME=~/Android/Sdk
-cd android
-./gradlew assembleDebug
-# APK: app/build/outputs/apk/debug/app-debug.apk
-```
+share the Event Intelligence database.
 
-默认 Base URL：`http://10.0.2.2:8000`（模拟器访问本机 API）。真机请在 Settings 改为 API 所在局域网地址，例如 `http://192.168.1.84:8000`。API 需 `--host 0.0.0.0`。
+See Architecture for the compatibility boundary.
 
-用 Android Studio 打开 `android/` 目录即可 Run。环境说明见 [`docs/android-dev-machine.md`](docs/android-dev-machine.md)。
+OpenCLIP and resource use
 
-## 下一步（M3）
+The current OpenCLIP configuration is:
 
-- Android Chat 页 + 推送通知
-- iOS App：Summary / Timeline / Search / Chat
-- Home Assistant Integration
+ViT-B-32-quickgelu
+
+with pretrained identifier:
+
+openai
+
+Model weights are acquired on demand by the model tooling and cached locally.
+
+They are not bundled with this repository.
+
+Downloads and caches require local storage, and model processing can require significant memory and CPU resources.
+
+Linux CPU OpenCLIP and the separate container-first CUDA/GPU profile:
+
+openclip-cuda
+
+docker/Dockerfile.model-worker-cuda
+
+compose.gpu.yaml
+
+have both been hardware-validated.
+
+The default Linux installation still resolves Torch from the CPU wheel index.
+
+GPU mode requires the host to provide:
+
+an NVIDIA driver;
+
+NVIDIA Container Toolkit.
+
+A host CUDA toolkit is not required.
+
+The project is currently distributed primarily as source. The repository does not include pretrained model weights, user camera media, or private environment configuration, and it does not currently provide project-published Docker images or APK/AAB binaries. Those build artifacts are produced locally from source.
+
+See resource profiles for current planning details.
+
+Web and Android
+
+The Web client in web/ provides:
+
+Summary
+
+Search
+
+Chat
+
+against the Video Summary application API.
+
+During Vite development, /api requests are proxied to:
+
+http://localhost:8000
+
+by default.
+
+VITE_API_PROXY_TARGET can select another trusted-development API endpoint.
+
+The currently validated Web toolchain uses Node:
+
+22.14.0
+
+The Android client in android/ provides:
+
+Summary
+
+Timeline
+
+Search
+
+Chat
+
+Settings
+
+Debug builds default to:
+
+http://10.0.2.2:8000
+
+which allows an Android emulator to reach an API running on its host.
+
+A physical device needs a Video Summary API address reachable on the same trusted network.
+
+Release builds require an HTTPS base URL and reject cleartext HTTP.
+
+The validated Android toolchain is:
+
+JDK 17
+
+Gradle 8.9
+
+Android Gradle Plugin 8.7.3
+
+Kotlin 2.0.21
+
+compile/target SDK 35
+
+minimum SDK 26
+
+See the Android development guide.
+
+Security and deployment boundary
+
+The default development deployment assumes a trusted internal network.
+
+The following components must not be exposed directly to untrusted networks:
+
+PostgreSQL
+
+Redis
+
+MQTT
+
+workers
+
+model services
+
+middleware-facing services
+
+Development credentials and anonymous MQTT are for local or trusted-development use only.
+
+External access is the deployer's responsibility and should use controls appropriate to the environment, such as:
+
+VPN
+
+TLS reverse proxy
+
+authentication gateway
+
+zero-trust access layer
+
+This repository does not provide a complete public-network security gateway.
+
+Before moving beyond local development, review:
+
+Deployment
+
+Security
+
+Potential vulnerabilities should be handled according to the conservative reporting process described in SECURITY.md.
+
+Do not disclose sensitive security details publicly.
+
+Documentation and license
+
+Architecture
+
+Development
+
+Contributing
+
+Deployment
+
+Security
+
+Android development
+
+Resource profiles
+
+Environment template
+
+Apache License 2.0
