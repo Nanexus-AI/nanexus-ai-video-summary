@@ -1,5 +1,8 @@
 # CONTRACT-001 Architecture Gate
 
+> **Historical architecture record.** Retained for engineering context; current architecture is
+> documented in [`docs/architecture.md`](../../architecture.md).
+
 Status: **APPROVED**
 Date: 2026-08-21
 Approver: Product owner

@@ -1,5 +1,24 @@
 # Migration development progress
 
+> **Historical document.** This dated implementation diary is retained for engineering context
+> and does not state the current project stage. See [`docs/architecture.md`](../architecture.md)
+> and [`docs/development.md`](../development.md) for current guidance.
+
+## 2026-08-24: Stage 9 Closeout first execution
+
+Committed the verified Closeout implementation as `da3b7c6`. The run completed explicit
+previous-version upgrades, source-built integrated Compose, deterministic no-cloud Stub runtime,
+formal Gitleaks scans, repository SBOM generation, full Mypy disposition, Web lint, four-worker
+heartbeat/degraded recovery, and reliable processing-list/ACK/startup recovery for embedding,
+Summary and Chat. Video backend reached 90 passing tests; Event Intelligence reached 153 passing
+with 3 environment-gated integration skips; both Web builds and Android Debug/Release gates passed.
+
+Stage 9 remains blocked. The next bounded task is the CPU OpenCLIP Closeout Evidence Gate only:
+true CPU dependency/image separation, synthetic Evidence image through persisted embedding and
+public Search, exact cold/warm resource timing, and model-unavailable degradation. It does not
+authorize Shadow Validation or absorb the later license, external Compose, isolated-build,
+enrichment-durability or compatibility tasks.
+
 ## 2026-08-24: Stage 8 Web and Android migration
 
 Added the Video Summary-owned Web product and migrated Android's default Summary/Search/Chat flows to stable v1 DTOs, capability negotiation, asynchronous Chat polling and Subject UUID links. Added a client-safe capability/Subject-link API, Debug/Release network split and centralized Android Token Provider boundary. Legacy client DTOs/routes/screens remain rollback-only.

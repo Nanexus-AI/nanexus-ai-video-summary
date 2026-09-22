@@ -1,10 +1,14 @@
 # M1 实现总结：理解层（Snapshot → Caption → Embedding → Search）
 
+> **Historical document.** Retained for engineering context; model names, defaults, and media
+> behavior below are not current guidance. See [`docs/architecture.md`](../architecture.md) and
+> [`docs/resource-profiles.md`](../resource-profiles.md).
+
 在 M0 骨架之上，完成「真实视觉理解管线 + 语义搜索 + 媒体回跳」。
 
 相关文档：
 
-- 架构：[architecture.md](./architecture.md)
+- 架构：[architecture.md](../architecture.md)
 - M0：[m0-implementation.md](./m0-implementation.md)
 
 ---

@@ -1,10 +1,14 @@
 # Nanexus Video Summary 基座化改造开发计划
 
+> **Historical document.** This migration plan records earlier sequencing and gate decisions; it
+> is not an active plan or authorization. See [`docs/architecture.md`](../architecture.md) and
+> [`docs/development.md`](../development.md) for the current project.
+
 > 文档状态：待实施
 > 制定日期：2026-08-21
 > 主要依据：[技术评估与基座化改造参考](./technical-assessment-and-migration-reference.md)
 > 上层项目：`nanexus_ai_video_summary`
-> 目标基座：`nanexus_frigate_extension` / Nanexus Event Intelligence
+> 目标基座：`nanexus-event-intelligence` / Nanexus Event Intelligence
 
 ## 1. 计划目的
 
@@ -1143,7 +1147,7 @@ CLIENT-WEB-001～003 与 CLIENT-ANDROID-001～006 已完成。两个客户端默
 
 ### 15.4 实施状态与下一步 Gate（2026-08-24）
 
-RELEASE-001～006 的代码和主要部署基座已经实现：Python 3.12/frozen lock、两种 Compose 模式、独立 Migration Job、生产 fail-closed 身份边界、Capability 拒绝、Android Keystore/Release HTTPS、健康状态和有界指标均已落地。Fresh install、重复 upgrade、一体/外接基座启动、Stub、Web/Android 构建及固定 model/worker 故障测试已有验收记录，见 [`stage9-acceptance.md`](./stage9-acceptance.md)。
+RELEASE-001～006 的代码和主要部署基座已经实现：Python 3.12/frozen lock、两种 Compose 模式、独立 Migration Job、生产 fail-closed 身份边界、Capability 拒绝、Android Keystore/Release HTTPS、健康状态和有界指标均已落地。Fresh install、重复 upgrade、一体/外接基座启动、Stub、Web/Android 构建及固定 model/worker 故障测试在当时的内部 Stage 9 记录中验收；该原始执行记录不随首个公开版本发布。
 
 阶段 9 尚不得声明完整退出，必须先完成一个独立的 **Stage 9 Closeout Gate**：
 
@@ -1156,6 +1160,19 @@ RELEASE-001～006 的代码和主要部署基座已经实现：Python 3.12/froze
 7. 处理或逐项批准 Video Summary 全仓 Mypy 的九项既有债务；不得将失败命令报告为通过。
 
 Closeout Gate 只做部署和发行验证，不运行影子流量、不关闭旧 Listener/Worker、不删除旧 API/DTO/数据，也不执行开源发布。
+
+#### Closeout 首轮执行状态（2026-08-24）
+
+首轮 Closeout 实现已提交为 `da3b7c6`；当时的内部完整执行记录不随首个公开版本发布。
+前版本升级、Mypy、Stub、
+Secret Scan 和大部分 Worker 耐久性证据已关闭，但阶段 9 仍被 CPU OpenCLIP 媒体闭环与
+CPU-only 依赖、License/SBOM 未知项、外接基座实跑、隔离构建、Enrichment in-flight 数据
+和剩余兼容性证据阻塞。
+
+紧接着只执行 **CPU OpenCLIP Closeout Evidence Gate**：建立真正 CPU 依赖/镜像边界，完成
+合成 Evidence 图片到 image embedding、持久化和公开 Search 的闭环，记录冷下载/冷启动/
+热启动/首次与热推理资源，并验证模型不可用时仅 Video Summary degraded。该任务通过也不
+自动关闭阶段 9，更不授权 Shadow Validation。
 
 ## 16. 阶段 10：旧链路退役与数据处理
 

@@ -1,10 +1,13 @@
 # M2 实现总结：日终摘要 Worker + Chat RAG
 
+> **Historical document.** Retained for engineering context; the M2 APIs and direct event path
+> below are not the current product boundary. See [`docs/architecture.md`](../architecture.md).
+
 在 M1 理解层之上，完成「预计算摘要」与「基于检索的问答」，控制 LLM 成本。
 
 相关文档：
 
-- 架构：[architecture.md](./architecture.md)
+- 架构：[architecture.md](../architecture.md)
 - M1：[m1-implementation.md](./m1-implementation.md)
 
 ---

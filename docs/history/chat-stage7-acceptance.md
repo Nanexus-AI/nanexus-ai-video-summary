@@ -1,5 +1,8 @@
 # Chat stage 7 acceptance
 
+> **Historical evidence.** This dated acceptance record is retained for engineering context and
+> does not describe the current project stage. See [`docs/architecture.md`](../architecture.md).
+
 Date: 2026-08-24
 
 ## Scope and prerequisites

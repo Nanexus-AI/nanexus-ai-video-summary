@@ -1,5 +1,9 @@
 # Client stage 8 acceptance
 
+> **Historical evidence.** This dated acceptance record is retained for engineering context and
+> does not describe the current project stage. See [`docs/android.md`](../android.md) and
+> [`docs/architecture.md`](../architecture.md).
+
 Date: 2026-08-24
 
 ## Prerequisite audit

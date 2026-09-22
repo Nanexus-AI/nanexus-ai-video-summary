@@ -1,5 +1,8 @@
 # BASELINE-001～005 acceptance record
 
+> **Historical evidence.** This record captures an earlier migration baseline and is not current
+> project status or operating guidance. See [`docs/architecture.md`](../architecture.md).
+
 Date: 2026-08-21
 Scope: stage 0 only; no CONTRACT-001 work, foundation refactor, OpenCLIP migration, deployment, or runtime cutover.
 

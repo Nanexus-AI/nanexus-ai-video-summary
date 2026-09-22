@@ -1,5 +1,8 @@
 # ADR: Chat v1 asynchronous worker boundary
 
+> **Historical architecture record.** Retained for the rationale behind the current design;
+> [`docs/architecture.md`](../../architecture.md) remains authoritative.
+
 Status: Accepted for stage 7 migration (2026-08-24).
 
 ## Decision

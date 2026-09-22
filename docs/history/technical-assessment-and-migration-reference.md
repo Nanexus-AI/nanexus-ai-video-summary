@@ -1,9 +1,13 @@
 # Nanexus Video Summary 技术评估与基座化改造参考
 
+> **Historical document.** This dated assessment describes the pre-migration M2 prototype and is
+> retained for engineering rationale, not as current architecture. See
+> [`docs/architecture.md`](../architecture.md).
+
 > 文档状态：初始技术评估
 > 评估日期：2026-08-20
 > 适用项目：`nanexus_ai_video_summary`
-> 目标基座：`nanexus_frigate_extension` / Nanexus Event Intelligence
+> 目标基座：`nanexus-event-intelligence` / Nanexus Event Intelligence
 
 ## 1. 文档目的
 

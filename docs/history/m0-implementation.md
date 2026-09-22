@@ -1,11 +1,15 @@
 # M0 实现总结：环境搭建、步骤与代码说明
 
+> **Historical document.** Retained for engineering context; it is not current setup or
+> architecture guidance. See [`docs/architecture.md`](../architecture.md) and
+> [`docs/development.md`](../development.md).
+
 本文记录从架构构想到可运行产品雏形（M0）的落地过程，包括环境分工、实现内容、数据流、验证结果与已知问题。
 
 相关文档：
 
-- 架构设计：[architecture.md](./architecture.md)
-- 快速上手：[../README.md](../README.md)
+- 架构设计：[architecture.md](../architecture.md)
+- 快速上手：[README.md](../../README.md)
 
 ---
 
@@ -376,7 +380,7 @@ docker compose down
 
 ## 11. 下一步（M1 建议）
 
-按 [architecture.md](./architecture.md) 里程碑：
+按当时的架构里程碑（当前架构见 [architecture.md](../architecture.md)）：
 
 1. **AI Worker 真实化**：下载 Frigate snapshot → caption → OpenCLIP embedding 写回
 2. **`POST /search`**：query 文本编码 + pgvector 近邻 + 时间/摄像头过滤

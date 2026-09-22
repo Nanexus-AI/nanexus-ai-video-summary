@@ -1,5 +1,8 @@
 # ADR: Stage 8 client product boundary
 
+> **Historical architecture record.** Retained for the rationale behind the current design;
+> [`docs/architecture.md`](../../architecture.md) remains authoritative.
+
 Status: Accepted for stage 8 (2026-08-24).
 
 ## Decision

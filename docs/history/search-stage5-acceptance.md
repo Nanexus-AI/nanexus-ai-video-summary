@@ -1,5 +1,8 @@
 # Stage 5 Embedding and semantic Search acceptance
 
+> **Historical evidence.** This dated acceptance record is retained for engineering context and
+> does not describe the current project stage. See [`docs/architecture.md`](../architecture.md).
+
 Date: 2026-08-24
 Scope: SEARCH-001 through SEARCH-007. Storage decision: Video Summary owns the application-level pgvector table. Event Intelligence remains authoritative for subjects, claims, evidence and model invocations.
 
