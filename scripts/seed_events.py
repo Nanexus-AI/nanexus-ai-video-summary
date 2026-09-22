@@ -44,10 +44,10 @@ SAMPLES = [
     {
         "camera": "driveway",
         "label": "package",
-        "sub_label": "UPS",
+        "sub_label": "courier",
         "has_clip": True,
         "color": (180, 140, 40),
-        "text": "UPS PACKAGE TRUCK",
+        "text": "COURIER DELIVERY VAN",
     },
     {
         "camera": "backyard",
