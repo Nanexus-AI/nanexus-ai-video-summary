@@ -44,7 +44,7 @@ services:
 
   event-migrate:
     profiles: [integrated]
-    build: {context: ../nanexus_frigate_extension/backend, target: production}
+    build: {context: "${EVENT_INTELLIGENCE_SOURCE_DIR:-../nanexus-event-intelligence}/backend", target: production}
     command: [uv, run, --no-sync, alembic, upgrade, head]
     environment:
       DATABASE_URL: postgresql+asyncpg://nanexus:${EVENT_DB_PASSWORD:?set EVENT_DB_PASSWORD}@event-db:5432/event_intelligence
@@ -53,7 +53,7 @@ services:
 
   event-intelligence:
     profiles: [integrated]
-    build: {context: ../nanexus_frigate_extension/backend, target: production}
+    build: {context: "${EVENT_INTELLIGENCE_SOURCE_DIR:-../nanexus-event-intelligence}/backend", target: production}
     environment:
       DATABASE_URL: postgresql+asyncpg://nanexus:${EVENT_DB_PASSWORD:?set EVENT_DB_PASSWORD}@event-db:5432/event_intelligence
       REDIS_URL: redis://redis:6379/1
@@ -71,7 +71,7 @@ services:
 
   event-worker:
     profiles: [integrated]
-    build: {context: ../nanexus_frigate_extension/backend, target: production}
+    build: {context: "${EVENT_INTELLIGENCE_SOURCE_DIR:-../nanexus-event-intelligence}/backend", target: production}
     command: [uv, run, --no-sync, nanexus-pipeline-worker]
     environment:
       DATABASE_URL: postgresql+asyncpg://nanexus:${EVENT_DB_PASSWORD:?set EVENT_DB_PASSWORD}@event-db:5432/event_intelligence

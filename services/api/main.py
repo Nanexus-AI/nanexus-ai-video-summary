@@ -31,6 +31,12 @@ from nanexus.models import (
 )
 from nanexus.queue import AIJob, AIQueue, ChatQueueJob, SummaryJob
 from nanexus.observability import prometheus, snapshot
+from nanexus.public_paths import (
+    SUBJECT_PATH_TEMPLATE,
+    evidence_proxy_url,
+    event_intelligence_review_item_url,
+    subject_path,
+)
 from nanexus.schemas import (
     ChatJobV1Out,
     ChatMessageV1Out,
@@ -190,7 +196,7 @@ def metrics(
 def client_capabilities_v1() -> ClientCapabilitiesV1:
     """Public client contract; deliberately excludes tokens and internal URLs."""
     return ClientCapabilitiesV1(
-        subject_path_template="/api/v1/subjects/{subject_id}",
+        subject_path_template=SUBJECT_PATH_TEMPLATE,
         summary=ClientFeatureCapability(available=True, mode=settings.summary_mode, asynchronous=True),
         search=ClientFeatureCapability(available=True, mode="semantic"),
         chat=ClientFeatureCapability(available=True, mode=settings.chat_mode, asynchronous=True),
@@ -203,8 +209,10 @@ def client_capabilities_v1() -> ClientCapabilitiesV1:
 def open_subject_v1(
     subject_id: UUID, principal: Principal = Depends(current_principal)
 ) -> RedirectResponse:
-    """Open the authoritative Event Intelligence review without proxying its logic."""
-    target = f"{settings.event_intelligence_public_url.rstrip('/')}/api/v1/events/{subject_id}"
+    """Open the canonical ReviewItem through Event Intelligence's public review-item route."""
+    target = event_intelligence_review_item_url(
+        settings.event_intelligence_public_url, subject_id
+    )
     return RedirectResponse(url=target, status_code=307)
 
 
@@ -431,11 +439,10 @@ def semantic_search_v1(
             labels=record.labels,
             occurred_at=record.occurred_at,
             evidence=[
-                f"{settings.public_base_url}/api/v1/search/evidence/"
-                f"{record.source_job_id}/evidence/{evidence_id}"
+                evidence_proxy_url(settings.public_base_url, record.source_job_id, evidence_id)
                 for evidence_id in record.evidence_ids
             ],
-            subject_path=f"/api/v1/subjects/{record.subject_id}",
+            subject_path=subject_path(record.subject_id),
         )
         for record, score in rows
     ]

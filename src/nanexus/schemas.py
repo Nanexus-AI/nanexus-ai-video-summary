@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
+from nanexus.public_paths import subject_path
+
 
 class EventOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -210,7 +212,7 @@ class ChatMessageV1Out(BaseModel):
     @computed_field
     def citations(self) -> list[dict[str, str]]:
         return [
-            {"subject_id": subject_id, "review_path": f"/api/v1/events/{subject_id}"}
+            {"subject_id": subject_id, "review_path": subject_path(subject_id)}
             for subject_id in self.related_subject_ids
         ]
 

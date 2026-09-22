@@ -29,7 +29,7 @@ services:
 
   event-migrate:
     build:
-      context: ../nanexus_frigate_extension/backend
+      context: "${EVENT_INTELLIGENCE_SOURCE_DIR:-../nanexus-event-intelligence}/backend"
       target: production
     command: ["uv", "run", "--no-sync", "alembic", "upgrade", "head"]
     environment:
@@ -40,7 +40,7 @@ services:
 
   event-seed:
     build:
-      context: ../nanexus_frigate_extension/backend
+      context: "${EVENT_INTELLIGENCE_SOURCE_DIR:-../nanexus-event-intelligence}/backend"
       target: production
     command:
       - uv
@@ -52,7 +52,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://nanexus:nanexus@event-db:5432/event_intelligence
       ENRICHMENT_PROCESSOR_MODE: external
     volumes:
-      - ../nanexus_frigate_extension/fixtures/frigate/0.17/vehicle-lifecycle:/fixtures:ro
+      - "${EVENT_INTELLIGENCE_SOURCE_DIR:-../nanexus-event-intelligence}/fixtures/frigate/0.17/vehicle-lifecycle:/fixtures:ro"
       - ./tests/smoke:/smoke:ro
     depends_on:
       event-migrate:
@@ -60,7 +60,7 @@ services:
 
   event-intelligence:
     build:
-      context: ../nanexus_frigate_extension/backend
+      context: "${EVENT_INTELLIGENCE_SOURCE_DIR:-../nanexus-event-intelligence}/backend"
       target: production
     environment:
       DATABASE_URL: postgresql+asyncpg://nanexus:nanexus@event-db:5432/event_intelligence
@@ -79,7 +79,7 @@ services:
 
   event-pipeline:
     build:
-      context: ../nanexus_frigate_extension/backend
+      context: "${EVENT_INTELLIGENCE_SOURCE_DIR:-../nanexus-event-intelligence}/backend"
       target: production
     command: ["uv", "run", "--no-sync", "nanexus-pipeline-worker"]
     environment:

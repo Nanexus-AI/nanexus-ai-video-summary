@@ -100,7 +100,7 @@ def test_normalized_message_schema_exposes_auditable_fields_and_public_path():
     )
     output = ChatMessageV1Out.model_validate(message).model_dump(mode="json")
     assert output["citations"] == [
-        {"subject_id": subject_id, "review_path": f"/api/v1/events/{subject_id}"}
+        {"subject_id": subject_id, "review_path": f"/api/v1/subjects/{subject_id}"}
     ]
     assert output["degraded"] is True
     assert output["prompt_version"] == "security-grounded-v1"

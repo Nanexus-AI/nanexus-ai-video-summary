@@ -108,13 +108,59 @@ def test_search_v1_degrades_to_empty_without_legacy_fallback(monkeypatch):
     assert response.items == []
 
 
+def test_search_hit_evidence_urls_match_proxy_route(monkeypatch):
+    import services.api.main as api
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+    from uuid import UUID
+
+    from nanexus.public_paths import evidence_proxy_url, subject_path
+    from nanexus.semantic_search import QueryEmbedding
+
+    job_id = UUID("00000000-0000-0000-0000-0000000000d1")
+    evidence_id = "00000000-0000-0000-0000-0000000000d2"
+    subject_id = UUID("00000000-0000-0000-0000-0000000000d3")
+    record = SimpleNamespace(
+        subject_type="review_item",
+        subject_id=subject_id,
+        subject_revision="1",
+        source_claim_id=UUID("00000000-0000-0000-0000-0000000000d4"),
+        camera="front",
+        site="home",
+        labels=["car"],
+        occurred_at=datetime(2026, 8, 24, tzinfo=UTC),
+        source_job_id=job_id,
+        evidence_ids=[evidence_id],
+    )
+    monkeypatch.setattr(
+        api,
+        "embed_query",
+        lambda _: QueryEmbedding([0.0] * 3, 3, "p", "m", "v"),
+    )
+    monkeypatch.setattr(api, "semantic_search", lambda *args, **kwargs: [(record, 0.91)])
+    monkeypatch.setattr(api.settings, "public_base_url", "http://vs.example")
+    response = api.semantic_search_v1(
+        api.SemanticSearchRequest(query="car"),
+        db=object(),
+        principal=api.Principal("test", "reader", frozenset({"*"})),
+    )
+    assert len(response.items) == 1
+    hit = response.items[0]
+    assert hit.evidence == [evidence_proxy_url("http://vs.example", job_id, evidence_id)]
+    assert hit.evidence[0].count("/evidence/") == 1
+    assert hit.subject_path == subject_path(subject_id)
+
+
 def test_search_evidence_is_proxied_through_event_intelligence(monkeypatch):
     import asyncio
 
     import services.api.main as api
     from nanexus.event_intelligence_client import EvidenceContent
+    from nanexus.public_paths import evidence_proxy_path, evidence_proxy_url
 
     calls = []
+    job_id = "00000000-0000-0000-0000-000000000001"
+    evidence_id = "00000000-0000-0000-0000-000000000002"
 
     class Client:
         def __init__(self, *args, **kwargs):
@@ -131,11 +177,14 @@ def test_search_evidence_is_proxied_through_event_intelligence(monkeypatch):
             return EvidenceContent(b"image", "image/jpeg")
 
     monkeypatch.setattr(api, "EventIntelligenceClient", Client)
-    response = asyncio.run(
-        api.semantic_search_evidence(
-            "00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"
-        )
-    )
+    response = asyncio.run(api.semantic_search_evidence(job_id, evidence_id))
     assert response.body == b"image"
     assert response.headers["cache-control"] == "private, no-store"
     assert len(calls) == 2
+    advertised = evidence_proxy_url("http://127.0.0.1:8000", job_id, evidence_id)
+    assert advertised.endswith(evidence_proxy_path(job_id, evidence_id))
+    assert advertised.count("/evidence/") == 1
+    # Advertised URL path matches the FastAPI route template parameters.
+    assert evidence_proxy_path(job_id, evidence_id) == (
+        f"/api/v1/search/evidence/{job_id}/{evidence_id}"
+    )
