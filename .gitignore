@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 .venv/
 venv/
 __pycache__/
@@ -14,3 +16,48 @@ node_modules/
 *.log
 .DS_Store
 /data/
+
+# Private/local open-source preparation artifacts
+/docs/stage9-closeout-prompt.md
+/docs/stage9-cpu-openclip-closeout-prompt.md
+/docs/stage9-cpu-openclip-closeout-acceptance.md
+/compose.cpu-openclip-gate.yaml
+/audit-reports/
+/sbom-output/
+/license-scan-output/
+/benchmark-output/
+
+# Generated coverage and local databases
+/.coverage
+/.coverage.*
+/coverage/
+/htmlcov/
+*.db-journal
+*.db-shm
+*.db-wal
+*.db
+*.sqlite
+*.sqlite3
+/databases/
+/local-data/
+
+# Private signing material and downloaded model artifacts
+*.jks
+*.keystore
+*.p12
+*.pfx
+/secrets/
+*.private.key
+id_rsa
+id_ed25519
+/model-cache/
+/models/
+*.ckpt
+*.onnx
+*.safetensors
+*.pt
+*.pth
+
+# Generated mobile packages (source-first publication excludes binaries)
+*.apk
+*.aab
