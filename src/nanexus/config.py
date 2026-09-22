@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     ai_queue_key: str = "nanexus:ai:events"
     processed_set_key: str = "nanexus:ai:processed"
-    # stub | openclip
+    # Legacy AI-worker path only (stub | openclip). Independent of MODEL_PROVIDER.
     ai_mode: str = "openclip"
     ai_device: str = "auto"
     openclip_model: str = "ViT-B-32-quickgelu"
@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     event_intelligence_token: str = ""
     event_intelligence_timeout_seconds: float = 10.0
     event_intelligence_poll_seconds: float = 1.0
-    # Dedicated enrichment worker only. Cloud providers remain unsupported/default-off.
+    # Current v1 enrichment/model-service path (stub | openclip). Cloud unsupported.
     model_provider: str = "stub"
     model_timeout_seconds: float = 60.0
     model_max_image_bytes: int = 10 * 1024 * 1024

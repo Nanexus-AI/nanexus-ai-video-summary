@@ -1,0 +1,71 @@
+# Version-control metadata and local ignore configuration
+.git
+.gitignore
+
+# Local environment and secrets (retain the public example)
+.env
+.env.*
+!.env.example
+
+# Python environments, bytecode, and tool caches
+.venv/
+venv/
+env/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# JavaScript dependencies and generated Web output
+node_modules/
+web/node_modules/
+web/dist/
+
+# Android/Gradle local state and generated packages
+android/.gradle/
+android/**/build/
+*.apk
+*.aab
+
+# Runtime databases, logs, and local state
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.log
+logs/
+
+# Downloaded model caches and common weight artifacts
+.cache/
+model-cache/
+models/cache/
+*.ckpt
+*.onnx
+*.pt
+*.pth
+*.safetensors
+
+# Local verification and audit output
+.artifacts/
+artifacts/
+test-results/
+verification-output/
+docs/evidence/open-source-preparation/raw/
+
+# Private local Stage 9 verification surfaces
+compose.cpu-openclip-gate.yaml
+docs/stage9-cpu-openclip-closeout-acceptance.md
+
+# Editor, OS, and temporary files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

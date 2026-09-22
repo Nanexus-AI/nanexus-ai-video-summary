@@ -56,9 +56,23 @@ class HealthResponse(BaseModel):
     status: str
     database: bool
     redis: bool
-    ai_mode: str
+    ai_mode: str = Field(
+        description=(
+            "Legacy compatibility metadata for the retained AI-worker path "
+            "(Settings.ai_mode / AI_MODE). Not the current v1 model provider; "
+            "do not infer MODEL_PROVIDER from this value."
+        ),
+        deprecated=True,
+    )
     summary_mode: str
     chat_mode: str
+    model_provider: str = Field(
+        description=(
+            "Current v1 model-provider selection from MODEL_PROVIDER "
+            "(stub or openclip). Independent of legacy ai_mode. "
+            "Model/device runtime identity remains on the model service /health."
+        ),
+    )
 
 
 class ClientFeatureCapability(BaseModel):

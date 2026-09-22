@@ -133,6 +133,7 @@ def health(db: Session = Depends(get_db)) -> HealthResponse:
         ai_mode=settings.ai_mode,
         summary_mode=settings.summary_mode,
         chat_mode=settings.chat_mode,
+        model_provider=settings.model_provider,
     )
 
 

@@ -315,7 +315,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
                     val h = health.data!!
                     Text(
                         "OK · ${h.status} · db=${h.database} · redis=${h.redis}\n" +
-                            "ai=${h.aiMode} · summary=${h.summaryMode} · chat=${h.chatMode}",
+                            "provider=${h.modelProvider} · legacy ai=${h.aiMode} · summary=${h.summaryMode} · chat=${h.chatMode}",
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }

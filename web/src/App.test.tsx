@@ -41,9 +41,10 @@ beforeEach(() => {
                   status: "ok",
                   database: true,
                   redis: true,
-                  ai_mode: "stub",
+                  ai_mode: "openclip",
                   summary_mode: "rule",
                   chat_mode: "extractive",
+                  model_provider: "stub",
                 },
       text: async () => "",
     })),
@@ -69,6 +70,13 @@ test("search uses stable subject link", async () => {
     "href",
     "/api/v1/subjects/58e8dd46-66d0-4ac4-a025-7a44af2b6722",
   );
+});
+test("status shows v1 provider independently of legacy ai_mode", async () => {
+  render(<App />);
+  await screen.findByText("No precomputed summary for this day.");
+  fireEvent.click(screen.getByText("status"));
+  expect(await screen.findByText(/provider stub/)).toBeInTheDocument();
+  expect(screen.getByText(/legacy ai openclip/)).toBeInTheDocument();
 });
 test("shows retryable capability error", async () => {
   (fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(

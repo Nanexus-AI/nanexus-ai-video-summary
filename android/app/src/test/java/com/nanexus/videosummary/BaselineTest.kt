@@ -22,6 +22,16 @@ class BaselineTest {
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
     @After fun tearDown() = Dispatchers.resetMain()
 
+    @Test fun healthDtoKeepsLegacyAiModeAndReadsModelProvider() {
+        val json = Json { ignoreUnknownKeys = true }
+        val legacy = json.decodeFromString<HealthResponse>("""{"status":"ok","database":true,"redis":true,"ai_mode":"openclip","summary_mode":"rule","chat_mode":"extractive"}""")
+        assertEquals("openclip", legacy.aiMode)
+        assertEquals("", legacy.modelProvider)
+        val current = json.decodeFromString<HealthResponse>("""{"status":"ok","database":true,"redis":true,"ai_mode":"openclip","summary_mode":"rule","chat_mode":"extractive","model_provider":"stub"}""")
+        assertEquals("stub", current.modelProvider)
+        assertEquals("openclip", current.aiMode)
+    }
+
     @Test fun dtoDeserialization() {
         val json = """{"total":1,"items":[{"id":101,"frigate_id":"evt-person-001","camera":"front_door","label":"person","start_time":"2026-08-20T03:30:00Z","snapshot_uri":null,"status":"done"}]}"""
         val response = Json { ignoreUnknownKeys = true }.decodeFromString<TimelineResponse>(json)

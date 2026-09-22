@@ -51,6 +51,7 @@ data class HealthResponse(
     @SerialName("ai_mode") val aiMode: String,
     @SerialName("summary_mode") val summaryMode: String,
     @SerialName("chat_mode") val chatMode: String,
+    @SerialName("model_provider") val modelProvider: String = "",
 )
 
 @Serializable

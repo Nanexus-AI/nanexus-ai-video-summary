@@ -252,7 +252,8 @@ function Status() {
       {x && (
         <p className={x.status === "ok" ? "" : "warn"}>
           {x.status} · database {String(x.database)} · queue {String(x.redis)} ·
-          model {x.ai_mode} · summary {x.summary_mode} · chat {x.chat_mode}
+          provider {x.model_provider} · legacy ai {x.ai_mode} · summary{" "}
+          {x.summary_mode} · chat {x.chat_mode}
         </p>
       )}
     </section>
