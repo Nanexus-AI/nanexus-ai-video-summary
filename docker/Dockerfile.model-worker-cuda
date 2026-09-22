@@ -1,0 +1,28 @@
+# GPU OpenCLIP model worker.
+# CUDA userland comes from the locked Linux openclip-cuda extra (torch/torchvision cu130).
+# Host requirement: NVIDIA driver + NVIDIA Container Toolkit. No host CUDA toolkit.
+FROM nvidia/cuda:13.0.2-base-ubuntu24.04
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/src:/app \
+    PATH=/app/.venv/bin:$PATH \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_INSTALL_DIR=/opt/uv-python \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+COPY pyproject.toml uv.lock README.md ./
+COPY src ./src
+COPY services ./services
+RUN uv python install 3.12 \
+    && uv sync --frozen --no-dev --extra openclip-cuda --python 3.12
+CMD ["python", "-m", "services.event_intelligence_worker.main"]

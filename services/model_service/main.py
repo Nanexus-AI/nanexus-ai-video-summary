@@ -29,7 +29,15 @@ async def startup():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok" if provider.ready else "not_ready"}
+    identity = provider.identity
+    payload = {
+        "status": "ok" if provider.ready else "not_ready",
+        "provider": identity.provider,
+        "model": identity.model,
+        "device": identity.device,
+    }
+    payload.update(provider.runtime_capabilities())
+    return payload
 
 
 @app.post("/v1/embeddings/text", response_model=EmbedResponse)

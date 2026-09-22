@@ -22,6 +22,7 @@ from nanexus.providers.base import (
     ProviderHealth,
     ResourceRequirements,
 )
+from nanexus.providers.device import CudaUnavailableError, resolve_inference_device
 
 LABEL_SET_VERSION = "security-camera-en-v1"
 ZERO_SHOT_LABELS = (
@@ -69,6 +70,8 @@ class OpenCLIPProvider(Provider):
         self._tokenizer: Any = None
         self._device: str | None = None
         self._runtime_version = "unloaded"
+        self._cuda_available = False
+        self._torch_cuda_build: str | None = None
         self._load_lock = threading.Lock()
         self._failed = False
 
@@ -103,6 +106,17 @@ class OpenCLIPProvider(Provider):
             return ProviderHealth.NOT_READY
         return ProviderHealth.HEALTHY
 
+    def runtime_capabilities(self) -> dict[str, object]:
+        identity = self.identity
+        return {
+            "provider": identity.provider,
+            "model": identity.model,
+            "device": identity.device,
+            "requested_device": self.requested_device,
+            "cuda_available": self._cuda_available,
+            "torch_cuda_build": self._torch_cuda_build,
+        }
+
     def _load(self) -> None:
         if self._model is not None:
             return
@@ -120,9 +134,16 @@ class OpenCLIPProvider(Provider):
                 if model_config is None or not pretrained_config:
                     raise ValueError("OpenCLIP model or pretrained configuration is unavailable")
                 validate_activation_config(model_config, pretrained_config)
-                device = self.requested_device
-                if device == "auto":
-                    device = "cuda" if torch.cuda.is_available() else "cpu"
+                self._cuda_available = bool(torch.cuda.is_available())
+                self._torch_cuda_build = torch.version.cuda
+                try:
+                    device = resolve_inference_device(
+                        self.requested_device, cuda_available=self._cuda_available
+                    )
+                except CudaUnavailableError as error:
+                    raise ProviderError(
+                        "cuda_unavailable", str(error), retryable=False
+                    ) from error
                 model, _, preprocess = open_clip.create_model_and_transforms(
                     self.model_name, pretrained=self.pretrained
                 )
@@ -133,6 +154,9 @@ class OpenCLIPProvider(Provider):
                 self._tokenizer = open_clip.get_tokenizer(self.model_name)
                 self._device = device
                 self._runtime_version = getattr(open_clip, "__version__", "unknown")
+            except ProviderError:
+                self._failed = True
+                raise
             except Exception as error:
                 self._failed = True
                 raise ProviderError(

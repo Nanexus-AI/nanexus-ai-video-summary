@@ -1,0 +1,22 @@
+# GPU OpenCLIP overlay. Combine with compose.release.yaml or compose.search.yaml.
+# Does not replace the CPU/stub model-worker path. Does not publish extra host ports.
+services:
+  model-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.model-worker-cuda
+    environment:
+      MODEL_PROVIDER: openclip
+      AI_DEVICE: cuda
+      OPENCLIP_MODEL: ${OPENCLIP_MODEL:-ViT-B-32-quickgelu}
+      OPENCLIP_PRETRAINED: ${OPENCLIP_PRETRAINED:-openai}
+      HF_HOME: /root/.cache/huggingface
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

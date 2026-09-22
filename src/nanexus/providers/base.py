@@ -71,6 +71,17 @@ class Provider(ABC):
     def ready(self) -> bool:
         return self.health is ProviderHealth.HEALTHY
 
+    def runtime_capabilities(self) -> dict[str, object]:
+        identity = self.identity
+        return {
+            "provider": identity.provider,
+            "model": identity.model,
+            "device": identity.device,
+            "requested_device": identity.device,
+            "cuda_available": False,
+            "torch_cuda_build": None,
+        }
+
     @abstractmethod
     async def warmup(self, *, timeout_seconds: float) -> None: ...
 

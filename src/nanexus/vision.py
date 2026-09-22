@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from io import BytesIO
 
 from nanexus.config import get_settings
+from nanexus.providers.device import resolve_inference_device
 
 logger = logging.getLogger(__name__)
 
@@ -90,9 +91,9 @@ class VisionPipeline:
         import torch
 
         settings = self._settings
-        device = settings.ai_device
-        if device == "auto":
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = resolve_inference_device(
+            settings.ai_device, cuda_available=bool(torch.cuda.is_available())
+        )
 
         logger.info(
             "loading OpenCLIP model=%s pretrained=%s device=%s",

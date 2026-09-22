@@ -34,7 +34,40 @@ openclip = [
   "torchvision>=0.17,<1",
   "open-clip-torch>=2.26,<4",
 ]
+openclip-cuda = [
+  "torch==2.13.0",
+  "torchvision==0.28.0",
+  "open-clip-torch>=2.26,<4",
+]
 test = ["pytest>=8.3,<9", "mypy>=1.14,<2", "ruff>=0.9,<1"]
+
+[tool.uv]
+conflicts = [
+  [
+    { extra = "openclip" },
+    { extra = "openclip-cuda" },
+  ],
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cpu", extra = "openclip", marker = "sys_platform == 'linux'" },
+  { index = "pytorch-cu130", extra = "openclip-cuda", marker = "sys_platform == 'linux'" },
+]
+torchvision = [
+  { index = "pytorch-cpu", extra = "openclip", marker = "sys_platform == 'linux'" },
+  { index = "pytorch-cu130", extra = "openclip-cuda", marker = "sys_platform == 'linux'" },
+]
 
 [tool.ruff]
 target-version = "py312"
