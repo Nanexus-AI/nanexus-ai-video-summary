@@ -407,7 +407,7 @@ function ChatPage({ enabled }: { enabled: boolean }) {
       setJob(next);
       for (
         let i = 0;
-        i < 30 && !["completed", "failed"].includes(next.status);
+        i < 30 && !["completed", "failed", "ready"].includes(next.status);
         i++
       ) {
         await new Promise((r) => setTimeout(r, 1000));

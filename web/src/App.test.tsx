@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import App from "./App";
 const cap = {
@@ -50,7 +56,11 @@ beforeEach(() => {
     })),
   );
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 test("negotiates capabilities and renders empty summary", async () => {
   render(<App />);
   expect(
@@ -79,6 +89,88 @@ test("status shows v1 provider independently of legacy ai_mode", async () => {
   expect(screen.getByText(/legacy ai openclip/)).toBeInTheDocument();
   expect(screen.getByText("model_provider")).toBeInTheDocument();
   expect(screen.getByText("legacy ai_mode")).toBeInTheDocument();
+});
+test("chat polls queued and running jobs until ready, then renders the answer", async () => {
+  let jobPolls = 0;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string, init?: RequestInit) => ({
+      ok: true,
+      json: async () => {
+        if (input.includes("capabilities")) return cap;
+        if (input.includes("summaries")) return { summary: null };
+        if (input === "/api/v1/chat/jobs" && init?.method === "POST") {
+          return { id: "job-1", conversation_id: 7, status: "queued" };
+        }
+        if (input === "/api/v1/chat/jobs/job-1") {
+          jobPolls += 1;
+          if (jobPolls === 1) {
+            return { id: "job-1", conversation_id: 7, status: "running" };
+          }
+          return {
+            id: "job-1",
+            conversation_id: 7,
+            status: "ready",
+            answer: {
+              content: "Ready answer",
+              degraded: false,
+              citations: [],
+            },
+          };
+        }
+        throw new Error(`Unexpected fetch: ${input}`);
+      },
+      text: async () => "",
+    })),
+  );
+  render(<App />);
+  await screen.findByText("No precomputed summary for this day.");
+  fireEvent.click(screen.getByRole("tab", { name: "Chat" }));
+  fireEvent.change(screen.getByLabelText("question"), {
+    target: { value: "What happened?" },
+  });
+  vi.useFakeTimers();
+  fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+  await act(async () => {
+    await vi.runAllTimersAsync();
+  });
+  expect(screen.getByText("Ready answer")).toBeInTheDocument();
+  expect(jobPolls).toBe(2);
+});
+test("chat failed jobs remain terminal and are not polled", async () => {
+  let jobPolls = 0;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string, init?: RequestInit) => ({
+      ok: true,
+      json: async () => {
+        if (input.includes("capabilities")) return cap;
+        if (input.includes("summaries")) return { summary: null };
+        if (input === "/api/v1/chat/jobs" && init?.method === "POST") {
+          return {
+            id: "job-failed",
+            conversation_id: 8,
+            status: "failed",
+            error_code: "chat_failed",
+          };
+        }
+        if (input === "/api/v1/chat/jobs/job-failed") {
+          jobPolls += 1;
+        }
+        throw new Error(`Unexpected fetch: ${input}`);
+      },
+      text: async () => "",
+    })),
+  );
+  render(<App />);
+  await screen.findByText("No precomputed summary for this day.");
+  fireEvent.click(screen.getByRole("tab", { name: "Chat" }));
+  fireEvent.change(screen.getByLabelText("question"), {
+    target: { value: "What happened?" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+  expect(await screen.findByText("Job failed…")).toBeInTheDocument();
+  expect(jobPolls).toBe(0);
 });
 test("shows retryable capability error", async () => {
   (fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
