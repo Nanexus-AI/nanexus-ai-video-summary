@@ -1,10 +1,124 @@
-export type Feature={available:boolean;mode?:string;asynchronous:boolean};
-export type Capabilities={api_version:string;capability_version:string;canonical_schema_version:string;processor_contract_version:string;subject_reference:string;subject_path_template:string;summary:Feature;search:Feature;chat:Feature;legacy_fallback_available:boolean;ownership_authentication:string};
-export type Summary={content:string;local_date:string;generator:string;source_subject_ids:string[]};
-export type SearchHit={subject_id:string;score:number;camera?:string;labels:string[];occurred_at?:string;subject_path:string};
-export type ChatJob={id:string;conversation_id:number;status:string;error_code?:string;answer?:{content:string;method?:string;degraded:boolean;error_code?:string;citations:{subject_id:string;review_path:string}[]}};
-let sessionToken="";
-export const setSessionToken=(token:string)=>{sessionToken=token.trim()};
-const json=async<T>(path:string,init?:RequestInit):Promise<T>=>{const r=await fetch(path,{...init,headers:{'Content-Type':'application/json',...(sessionToken?{Authorization:`Bearer ${sessionToken}`}:{"X-Nanexus-Dev-Owner":"local-web"}),...(init?.headers??{})}});if(!r.ok)throw new Error(`${r.status}: ${await r.text()}`);return r.json()};
-export const api={capabilities:()=>json<Capabilities>('/api/v1/capabilities'),health:()=>json<{status:string;database:boolean;redis:boolean;ai_mode:string;summary_mode:string;chat_mode:string;model_provider:string}>('/health'),summary:(day:string,tz:string)=>json<{summary:Summary|null}>(`/api/v1/summaries/${day}?timezone=${encodeURIComponent(tz)}`),search:(query:string)=>json<{items:SearchHit[];degraded:boolean;degradation_reason?:string}>('/api/v1/search',{method:'POST',body:JSON.stringify({query})}),chat:(message:string,_owner_id:string,conversation_id?:number)=>{void _owner_id;return json<ChatJob>('/api/v1/chat/jobs',{method:'POST',body:JSON.stringify({message,conversation_id,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})})},job:(id:string,_owner:string)=>{void _owner;return json<ChatJob>(`/api/v1/chat/jobs/${id}`)}};
-export const subjectHref=(id:string)=>`/api/v1/subjects/${encodeURIComponent(id)}`;
+export type Feature = { available: boolean; mode?: string; asynchronous: boolean };
+export type Capabilities = {
+  api_version: string;
+  capability_version: string;
+  canonical_schema_version: string;
+  processor_contract_version: string;
+  subject_reference: string;
+  subject_path_template: string;
+  summary: Feature;
+  search: Feature;
+  chat: Feature;
+  legacy_fallback_available: boolean;
+  ownership_authentication: string;
+};
+export type SummaryHighlight = {
+  subject_id?: string;
+  time?: string;
+  camera?: string | null;
+  labels?: string[];
+  caption?: string | null;
+  repeat_count?: number;
+};
+export type Summary = {
+  content: string;
+  local_date: string;
+  generator: string;
+  source_subject_ids: string[];
+  timezone?: string;
+  status?: string;
+  structured_content?: {
+    review_count?: number;
+    unique_highlight_count?: number;
+    by_label?: Record<string, number>;
+    by_camera?: Record<string, number>;
+    highlights?: SummaryHighlight[];
+  };
+};
+export type SearchHit = {
+  subject_id: string;
+  score: number;
+  camera?: string;
+  site?: string;
+  labels: string[];
+  occurred_at?: string;
+  evidence?: string[];
+  subject_path: string;
+};
+export type SearchResponse = {
+  items: SearchHit[];
+  degraded: boolean;
+  degradation_reason?: string;
+  method?: string;
+  total?: number;
+};
+export type ChatJob = {
+  id: string;
+  conversation_id: number;
+  status: string;
+  error_code?: string;
+  answer?: {
+    content: string;
+    method?: string;
+    degraded: boolean;
+    error_code?: string;
+    citations: { subject_id: string; review_path: string }[];
+  };
+};
+let sessionToken = "";
+export const setSessionToken = (token: string) => {
+  sessionToken = token.trim();
+};
+const json = async <T>(path: string, init?: RequestInit): Promise<T> => {
+  const r = await fetch(path, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(sessionToken
+        ? { Authorization: `Bearer ${sessionToken}` }
+        : { "X-Nanexus-Dev-Owner": "local-web" }),
+      ...(init?.headers ?? {}),
+    },
+  });
+  if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+  return r.json();
+};
+export const api = {
+  capabilities: () => json<Capabilities>("/api/v1/capabilities"),
+  health: () =>
+    json<{
+      status: string;
+      database: boolean;
+      redis: boolean;
+      ai_mode: string;
+      summary_mode: string;
+      chat_mode: string;
+      model_provider: string;
+    }>("/health"),
+  summary: (day: string, tz: string) =>
+    json<{ summary: Summary | null }>(
+      `/api/v1/summaries/${day}?timezone=${encodeURIComponent(tz)}`,
+    ),
+  search: (query: string) =>
+    json<SearchResponse>("/api/v1/search", {
+      method: "POST",
+      body: JSON.stringify({ query }),
+    }),
+  chat: (message: string, _owner_id: string, conversation_id?: number) => {
+    void _owner_id;
+    return json<ChatJob>("/api/v1/chat/jobs", {
+      method: "POST",
+      body: JSON.stringify({
+        message,
+        conversation_id,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }),
+    });
+  },
+  job: (id: string, _owner: string) => {
+    void _owner;
+    return json<ChatJob>(`/api/v1/chat/jobs/${id}`);
+  },
+};
+export const subjectHref = (id: string) =>
+  `/api/v1/subjects/${encodeURIComponent(id)}`;

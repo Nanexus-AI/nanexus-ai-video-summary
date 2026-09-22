@@ -60,7 +60,7 @@ test("negotiates capabilities and renders empty summary", async () => {
 test("search uses stable subject link", async () => {
   render(<App />);
   await screen.findByText("No precomputed summary for this day.");
-  fireEvent.click(screen.getByText("search"));
+  fireEvent.click(screen.getByRole("tab", { name: "Search" }));
   fireEvent.change(screen.getByLabelText("query"), {
     target: { value: "person" },
   });
@@ -74,9 +74,11 @@ test("search uses stable subject link", async () => {
 test("status shows v1 provider independently of legacy ai_mode", async () => {
   render(<App />);
   await screen.findByText("No precomputed summary for this day.");
-  fireEvent.click(screen.getByText("status"));
+  fireEvent.click(screen.getByRole("tab", { name: "Status" }));
   expect(await screen.findByText(/provider stub/)).toBeInTheDocument();
   expect(screen.getByText(/legacy ai openclip/)).toBeInTheDocument();
+  expect(screen.getByText("model_provider")).toBeInTheDocument();
+  expect(screen.getByText("legacy ai_mode")).toBeInTheDocument();
 });
 test("shows retryable capability error", async () => {
   (fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
