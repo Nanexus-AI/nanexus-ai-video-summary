@@ -76,7 +76,7 @@ services:
     environment:
       MODEL_PROVIDER: ${MODEL_PROVIDER:-openclip}
       AI_DEVICE: ${AI_DEVICE:-cpu}
-      OPENCLIP_MODEL: ${OPENCLIP_MODEL:-ViT-B-32}
+      OPENCLIP_MODEL: ${OPENCLIP_MODEL:-ViT-B-32-quickgelu}
       OPENCLIP_PRETRAINED: ${OPENCLIP_PRETRAINED:-openai}
       EMBEDDING_DIM: "512"
   video-summary-api:
