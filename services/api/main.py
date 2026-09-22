@@ -561,7 +561,11 @@ def get_chat_job_v1(
     principal: Principal = Depends(current_principal),
 ) -> ChatJobV1Out:
     principal.require("reader", "user", "admin")
-    effective_owner = owner_id if settings.auth_mode == "development" else principal.owner_id
+    effective_owner = (
+        owner_id or principal.owner_id
+        if settings.auth_mode == "development"
+        else principal.owner_id
+    )
     job = db.get(ChatJob, job_id)
     if job is None or job.owner_id != effective_owner:
         raise HTTPException(status_code=404, detail="chat job not found")
@@ -589,7 +593,11 @@ def get_conversation_v1(
     principal: Principal = Depends(current_principal),
 ) -> ConversationV1Out:
     principal.require("reader", "user", "admin")
-    effective_owner = owner_id if settings.auth_mode == "development" else principal.owner_id
+    effective_owner = (
+        owner_id or principal.owner_id
+        if settings.auth_mode == "development"
+        else principal.owner_id
+    )
     conversation = db.get(Conversation, conversation_id)
     if conversation is None or conversation.user_id != effective_owner:
         raise HTTPException(status_code=404, detail="conversation not found")
