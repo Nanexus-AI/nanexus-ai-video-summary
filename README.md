@@ -53,148 +53,134 @@ Camera / NVR / VMS
         |
         v
 Nanexus Event Intelligence
-  vendor-neutral event processing and public HTTP/v1 contracts
+        vendor-neutral event processing and public HTTP/v1 contracts
         |
         v
 Nanexus AI Video Summary
-  ingestion consumers, retrieval, summaries, chat, application API
+        ingestion consumers, retrieval, summaries, chat, application API
         |
         +--> Web
         +--> Android
         +--> Summary
         +--> Search
-        +--> Chat                                                                                                                   Web and Android connect to the Video Summary API.
+        +--> Chat
 ```
+
+Web and Android connect to the Video Summary API.
 
 Video Summary should consume Event Intelligence through its versioned public boundary rather than importing its source, sharing its database, or reaching directly into a camera system.
 
 Frigate is an important current integration and compatibility path, but it is not the application's permanent architectural boundary.
 
-See the current architecture notes for more detail.
+See the [current architecture notes](docs/architecture.md) for more detail.
 
-Current capabilities
+## Current capabilities
 
-Event processing: consumes versioned Event Intelligence events, evidence, enrichment jobs, and compatibility metadata through HTTP/v1 clients and workers. A legacy Frigate MQTT/import path remains available as a rollback and local-demo path.
-
-Search: provides legacy keyword fallback and the v1 Search API backed by persisted embeddings and worker-isolated model inference. Semantic retrieval uses stable subject UUIDs and can report degraded results.
-
-Summaries: precomputes versioned daily summaries from Event Intelligence data. Deterministic rule mode is the default; an optional budget-limited OpenAI-compatible LLM mode is available.
-
-Chat: provides asynchronous v1 chat jobs over stored Search and Summary data, with subject citations, ownership isolation, prompt-injection controls, and an extractive no-cloud fallback.
-
-Model processing: supports deterministic Stub processing and an isolated OpenCLIP provider for image/text embeddings and zero-shot labels. Model inference is kept out of the application API process.
-
-Clients: the React Web client and Jetpack Compose Android client negotiate v1 capabilities and expose Summary, Search, and asynchronous Chat. Android also retains the Timeline compatibility view.
-
-Compatibility: startup capability checks can reject incompatible Event Intelligence API, schema, processor-contract, or capability versions. Legacy APIs and clients remain available as explicit rollback paths during the initial release period.
+- **Event processing:** consumes versioned Event Intelligence events, evidence, enrichment jobs, and compatibility metadata through HTTP/v1 clients and workers. A legacy Frigate MQTT/import path remains available as a rollback and local-demo path.
+- **Search:** provides legacy keyword fallback and the v1 Search API backed by persisted embeddings and worker-isolated model inference. Semantic retrieval uses stable subject UUIDs and can report degraded results.
+- **Summaries:** precomputes versioned daily summaries from Event Intelligence data. Deterministic rule mode is the default; an optional budget-limited OpenAI-compatible LLM mode is available.
+- **Chat:** provides asynchronous v1 chat jobs over stored Search and Summary data, with subject citations, ownership isolation, prompt-injection controls, and an extractive no-cloud fallback.
+- **Model processing:** supports deterministic Stub processing and an isolated OpenCLIP provider for image/text embeddings and zero-shot labels. Model inference is kept out of the application API process.
+- **Clients:** the React Web client and Jetpack Compose Android client negotiate v1 capabilities and expose Summary, Search, and asynchronous Chat. Android also retains the Timeline compatibility view.
+- **Compatibility:** startup capability checks can reject incompatible Event Intelligence API, schema, processor-contract, or capability versions. Legacy APIs and clients remain available as explicit rollback paths during the initial release period.
 
 These capabilities have clean-candidate verification evidence, including:
 
-synthetic public-HTTP integration with Event Intelligence;
-
-real CPU OpenCLIP inference;
-
-real GPU/CUDA OpenCLIP inference;
-
-persisted embeddings and semantic retrieval;
-
-grounded Summary/Search/Chat application flows.
+- synthetic public-HTTP integration with Event Intelligence.
+- real CPU OpenCLIP inference.
+- real GPU/CUDA OpenCLIP inference.
+- persisted embeddings and semantic retrieval.
+- grounded Summary/Search/Chat application flows.
 
 Deployment-specific production hardening, packaging, and publication remain separate work.
 
-Safe local demo
+## Safe local demo
 
 This small demo uses synthetic events, local snapshots, the deterministic Stub vision pipeline, and loopback-bound PostgreSQL, Redis, and MQTT.
 
 It does not require:
 
-a camera;
-
-model downloads;
-
-a GPU;
-
-a cloud API key.
+- a camera
+- model downloads
+- a GPU
+- a cloud API key
 
 The demo exercises the retained local-compatible path.
 
 The full v1 integrated workflow uses Nanexus Event Intelligence and is documented separately as release guidance matures.
 
-Prerequisites:
+### Prerequisites
 
-Python 3.12
+- `Python 3.12`
+- Docker
+- Docker Compose
 
-Docker
+Copy `.env.example`, select Stub mode, and start the local infrastructure:
 
-Docker Compose
-
-Copy .env.example, select Stub mode, and start the local infrastructure:
-
+```bash
 cp .env.example .env
 printf '\nAI_MODE=stub\n' >> .env
 docker compose up -d
 python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e .
+```
 
 In three terminals, with the virtual environment activated, run:
 
+```bash
 python -m services.mqtt_listener.main
 python -m services.ai_worker.main
 uvicorn services.api.main:app --reload --host 127.0.0.1 --port 8000
+```
 
 Then publish deterministic sample events and inspect the API:
 
+```bash
 source .venv/bin/activate
 python scripts/seed_events.py
 python scripts/build_summary.py
 curl -s http://127.0.0.1:8000/timeline | python -m json.tool
 curl -s http://127.0.0.1:8000/summary/today | python -m json.tool
+```
 
 Interactive API documentation is available at:
 
-http://127.0.0.1:8000/docs
+<http://127.0.0.1:8000/docs>
 
 Local credentials and anonymous MQTT configuration are development-only. Keep this demo on the local machine or a trusted internal network.
 
-Nanexus Event Intelligence
+## Nanexus Event Intelligence
 
 Nanexus Event Intelligence is a separate repository and service.
 
-Normal deployments point EVENT_INTELLIGENCE_URL at a compatible running Event Intelligence service and communicate only through its public, versioned HTTP contracts.
+Normal deployments point `EVENT_INTELLIGENCE_URL` at a compatible running Event Intelligence service and communicate only through its public, versioned HTTP contracts.
 
 A local Event Intelligence source checkout is not required for that mode.
 
 For source-built integration and synthetic integration testing, the Compose files support an optional Event Intelligence checkout.
 
-By default they look for a sibling directory named:
+By default they look for a sibling directory named `nanexus-event-intelligence`.
 
-nanexus-event-intelligence
+Set `EVENT_INTELLIGENCE_SOURCE_DIR` to use another layout:
 
-Set EVENT_INTELLIGENCE_SOURCE_DIR to use another layout:
-
+```dotenv
 EVENT_INTELLIGENCE_URL=http://event-intelligence:8000
 EVENT_INTELLIGENCE_SOURCE_DIR=../nanexus-event-intelligence
+```
 
 The source directory is a build/test input only.
 
 Video Summary runtime code does not:
 
-import Event Intelligence source;
+- import Event Intelligence source
+- share the Event Intelligence database
 
-share the Event Intelligence database.
+See [Architecture](#architecture) for the compatibility boundary.
 
-See Architecture for the compatibility boundary.
+## OpenCLIP and resource use
 
-OpenCLIP and resource use
-
-The current OpenCLIP configuration is:
-
-ViT-B-32-quickgelu
-
-with pretrained identifier:
-
-openai
+The current OpenCLIP configuration is `ViT-B-32-quickgelu` with pretrained identifier `openai`.
 
 Model weights are acquired on demand by the model tooling and cached locally.
 
@@ -202,71 +188,52 @@ They are not bundled with this repository.
 
 Downloads and caches require local storage, and model processing can require significant memory and CPU resources.
 
-Linux CPU OpenCLIP and the separate container-first CUDA/GPU profile:
+Linux CPU OpenCLIP and the separate container-first CUDA/GPU profile have both been hardware-validated:
 
-openclip-cuda
-
-docker/Dockerfile.model-worker-cuda
-
-compose.gpu.yaml
-
-have both been hardware-validated.
+- `openclip-cuda`
+- `docker/Dockerfile.model-worker-cuda`
+- `compose.gpu.yaml`
 
 The default Linux installation still resolves Torch from the CPU wheel index.
 
 GPU mode requires the host to provide:
 
-an NVIDIA driver;
-
-NVIDIA Container Toolkit.
+- an NVIDIA driver
+- NVIDIA Container Toolkit
 
 A host CUDA toolkit is not required.
 
 The project is currently distributed primarily as source. The repository does not include pretrained model weights, user camera media, or private environment configuration, and it does not currently provide project-published Docker images or APK/AAB binaries. Those build artifacts are produced locally from source.
 
-See resource profiles for current planning details.
+See [resource profiles](docs/resource-profiles.md) for current planning details.
 
-Web and Android
+## Web and Android
 
-The Web client in web/ provides:
+### Web
 
-Summary
+The Web client in `web/` provides the following against the Video Summary application API:
 
-Search
+- Summary
+- Search
+- Chat
 
-Chat
+During Vite development, `/api` requests are proxied to <http://localhost:8000> by default.
 
-against the Video Summary application API.
+`VITE_API_PROXY_TARGET` can select another trusted-development API endpoint.
 
-During Vite development, /api requests are proxied to:
+The currently validated Web toolchain uses Node `22.14.0`.
 
-http://localhost:8000
+### Android
 
-by default.
+The Android client in `android/` provides:
 
-VITE_API_PROXY_TARGET can select another trusted-development API endpoint.
+- Summary
+- Timeline
+- Search
+- Chat
+- Settings
 
-The currently validated Web toolchain uses Node:
-
-22.14.0
-
-The Android client in android/ provides:
-
-Summary
-
-Timeline
-
-Search
-
-Chat
-
-Settings
-
-Debug builds default to:
-
-http://10.0.2.2:8000
-
-which allows an Android emulator to reach an API running on its host.
+Debug builds default to <http://10.0.2.2:8000>, which allows an Android emulator to reach an API running on its host.
 
 A physical device needs a Video Summary API address reachable on the same trusted network.
 
@@ -274,78 +241,56 @@ Release builds require an HTTPS base URL and reject cleartext HTTP.
 
 The validated Android toolchain is:
 
-JDK 17
+- `JDK 17`
+- `Gradle 8.9`
+- `Android Gradle Plugin 8.7.3`
+- `Kotlin 2.0.21`
+- compile/target SDK `35`
+- minimum SDK `26`
 
-Gradle 8.9
+See the [Android development guide](docs/android.md).
 
-Android Gradle Plugin 8.7.3
-
-Kotlin 2.0.21
-
-compile/target SDK 35
-
-minimum SDK 26
-
-See the Android development guide.
-
-Security and deployment boundary
+## Security and deployment boundary
 
 The default development deployment assumes a trusted internal network.
 
 The following components must not be exposed directly to untrusted networks:
 
-PostgreSQL
-
-Redis
-
-MQTT
-
-workers
-
-model services
-
-middleware-facing services
+- PostgreSQL
+- Redis
+- MQTT
+- workers
+- model services
+- middleware-facing services
 
 Development credentials and anonymous MQTT are for local or trusted-development use only.
 
 External access is the deployer's responsibility and should use controls appropriate to the environment, such as:
 
-VPN
-
-TLS reverse proxy
-
-authentication gateway
-
-zero-trust access layer
+- VPN
+- TLS reverse proxy
+- authentication gateway
+- zero-trust access layer
 
 This repository does not provide a complete public-network security gateway.
 
 Before moving beyond local development, review:
 
-Deployment
+- [Deployment](docs/deployment.md)
+- [Security](SECURITY.md)
 
-Security
-
-Potential vulnerabilities should be handled according to the conservative reporting process described in SECURITY.md.
+Potential vulnerabilities should be handled according to the conservative reporting process described in [SECURITY.md](SECURITY.md).
 
 Do not disclose sensitive security details publicly.
 
-Documentation and license
+## Documentation and license
 
-Architecture
-
-Development
-
-Contributing
-
-Deployment
-
-Security
-
-Android development
-
-Resource profiles
-
-Environment template
-
-Apache License 2.0
+- [Architecture](docs/architecture.md)
+- [Development](docs/development.md)
+- [Contributing](CONTRIBUTING.md)
+- [Deployment](docs/deployment.md)
+- [Security](SECURITY.md)
+- [Android development](docs/android.md)
+- [Resource profiles](docs/resource-profiles.md)
+- [Environment template](.env.example)
+- [Apache License 2.0](LICENSE)
